@@ -16,7 +16,7 @@ This stage builds the shell of the app and its primary screen. The Studio is whe
 4. `docs/writing.md` section 4 (glossary)
 5. `docs/design/screens/estudio.png` and `docs/design/pages/estudio.html`
 6. `docs/design/tokens.md` and the component table of stage 15
-7. The public API of `antenna-pipeline`, `antenna-audio`, `antenna-library`, `antenna-text` and `antenna-engine-registry` as merged by stages 02, 03, 05 and 06
+7. The public API of `antenna-pipeline`, `antenna-audio`, `antenna-library`, `antenna-text` and `antenna-engine-registry` as stages 02, 03, 05 and 06 committed it to `main`
 
 ## Scope
 
@@ -261,7 +261,7 @@ The export spec has the paths of `Timeline::paths(&store)` (stage 06) and `Timel
 
 ### Consumed API
 
-This stage uses these items of earlier stages. If a name or a signature is different in the merged code, use the merged code and record the difference in the PR.
+This stage uses these items of earlier stages. The code on `main` can use a different name or signature. In that case, use the code on `main` and record the difference in the stage report.
 
 | Crate | Items |
 |---|---|
@@ -441,13 +441,13 @@ When the environment variable `ANTENNA_STARTUP_PROBE=1` is set, the app logs `in
 11. Write `examples/seed_library.rs`. It takes a data directory and a count, and it writes that number of documents with 2 KB of text each.
 12. Add the startup probe.
 13. Run the app with `cargo run -p antenna-desktop --features engine-fake`. Do the manual QA script below.
-14. Measure the budgets of the acceptance criteria. Write the results in the PR.
+14. Measure the budgets of the acceptance criteria. Write the results in the stage report.
 15. Run `cargo xtask check`. Fix each failure.
 16. Do the quality gate in `docs/standards.md` section 20.
 
 ### Manual QA script
 
-Do these steps with `--features engine-fake` in a release build and a new data directory. Write the result of each step in the PR.
+Do these steps with `--features engine-fake` in a release build and a new data directory. Write the result of each step in the stage report.
 
 1. Start the app. The Studio shows a new draft, and the editor has focus.
 2. Paste 3 paragraphs of Spanish text. In less than 1 s, the language select shows Spanish. The sidebar "Recent" list shows the title of the first line.
@@ -468,7 +468,7 @@ Do these steps with `--features engine-fake` in a release build and a new data d
 
 | ID | Criterion | Check |
 |---|---|---|
-| AC-16-01 | Each row of the transition table gives the specified state and commands | One test for each row in the file of its input group, named `transition_gives_<result>_when_<state>_gets_<input>`. The PR lists the test name of each row |
+| AC-16-01 | Each row of the transition table gives the specified state and commands | One test for each row in the file of its input group, named `transition_gives_<result>_when_<state>_gets_<input>`. The stage report lists the test name of each row |
 | AC-16-02 | Events of an old job do not change the session | Test `transition_ignores_event_when_ticket_is_old` |
 | AC-16-03 | A seek to a generated position does not cancel the job | Test `transition_seek_keeps_job_when_position_is_generated` |
 | AC-16-04 | A seek to a segment that is not generated restarts the job at its segment | Test `transition_seek_restarts_job_when_segment_is_pending` |
@@ -486,8 +486,8 @@ Do these steps with `--features engine-fake` in a release build and a new data d
 | AC-16-16 | The app uses no CPU after a playback ends **(manual)** | Play a document to its end, wait 5 s, then do the check of AC-16-15. The two values are equal |
 | AC-16-17 | Scroll and typing with a 1 MB document run at 120 fps **(manual)** | Make the file with `for i in $(seq 30); do cat LICENSE; done > /tmp/one-megabyte.md`. Open it on a 120 Hz display. Record 10 s of scroll and 10 s of typing with the Instruments "Animation Hitches" template. The hitch count is 0 |
 | AC-16-18 | The reading view with the 1 MB document runs at 120 fps **(manual)** | Start playback of the same file and record 10 s with "Animation Hitches". The hitch count is 0 |
-| AC-16-19 | The Studio layout matches the design **(manual)** | Take a screenshot of the Studio at `LAYOUT_WINDOW` with the data of the QA script. Open it and `docs/design/screens/estudio.png` in Preview at the same scale. For each control in scope, measure the height, the padding and the gap with the rectangle selection. Each value is in 1 px of the design. Each color that Digital Color Meter reads is the token value. The PR contains both images and the list of measured controls |
-| AC-16-20 | The manual QA script passes **(manual)** | The PR lists the result of each of the 14 steps |
+| AC-16-19 | The Studio layout matches the design **(manual)** | Take a screenshot of the Studio at `LAYOUT_WINDOW` with the data of the QA script. Open it and `docs/design/screens/estudio.png` in Preview at the same scale. For each control in scope, measure the height, the padding and the gap with the rectangle selection. Each value is in 1 px of the design. Each color that Digital Color Meter reads is the token value. The stage report contains both images and the list of measured controls |
+| AC-16-20 | The manual QA script passes **(manual)** | The stage report lists the result of each of the 14 steps |
 | AC-16-21 | Screens and the shell do not call the player, the library, the model store or the pipeline, and do not name `Input` | `rg -e antenna_audio:: -e antenna_library:: -e antenna_models:: -e antenna_pipeline:: -e Input:: apps/desktop/src/screens apps/desktop/src/shell` returns no lines |
 | AC-16-22 | The app compiles and its tests pass on macOS, Linux and Windows | CI is green on the three jobs |
 | AC-16-23 | Each state and input pair gives a result without a panic | `proptest` test `transition_is_total_when_inputs_are_random` |
@@ -515,8 +515,8 @@ Do these steps with `--features engine-fake` in a release build and a new data d
 4. If `sys_locale::get_locale()` returns `None`, use English.
 5. If `hyperfine` is not installed, install it with `brew install hyperfine`.
 6. If the save panel returns an error on Linux, show the export error message. Linux packages are out of scope, so do not add a fallback dialog.
-7. A GPUI function of this file, for example `prompt_for_new_path`, can have a different name in `gpui-pre =0.3.8`. In that case, use the function with the same behavior and record it in the PR. If no function has the behavior, write a "Blocked" section.
-8. If a `Timeline` or `Track` function of the "Consumed API" table is missing in the merged code, write a "Blocked" section. Do not build the track or convert times in the app.
+7. A GPUI function of this file, for example `prompt_for_new_path`, can have a different name in `gpui-pre =0.3.8`. In that case, use the function with the same behavior and record it in the stage report. If no function has the behavior, write a "Blocked" section.
+8. If a `Timeline` or `Track` function of the "Consumed API" table is missing in the code on `main`, write a "Blocked" section. Do not build the track or convert times in the app.
 
 ## Out of scope
 

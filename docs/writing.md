@@ -1,6 +1,6 @@
 # Antenna Writing Standard (STE-80)
 
-This standard applies to all English text in the repository. That includes documents, doc comments, error messages, log messages, commit messages, PR text and UI copy.
+This standard applies to all English text in the repository. That includes documents, doc comments, error messages, log messages, commit messages, stage reports and UI copy.
 
 STE-80 is a profile of ASD-STE100 Issue 9 (January 2025). It keeps the rules that make text clear for human readers and for AI agents. It relaxes the rules that do not fit software documents. The full standard is free at [asd-ste100.org](https://www.asd-ste100.org/).
 

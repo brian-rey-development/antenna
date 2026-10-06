@@ -30,7 +30,7 @@ The app has five screens. The visual design of each screen is in `docs/design/sc
 
 The sidebar has a "What's new" item with the release notes of the installed version and of an available update.
 
-Antenna supports English, Spanish, Portuguese, French, Italian and German. The release target is macOS on Apple Silicon. CI compiles and tests Linux and Windows on each PR.
+Antenna supports English, Spanish, Portuguese, French, Italian and German. The release target is macOS on Apple Silicon. CI compiles and tests Linux and Windows on each push to `main`.
 
 ### 1.2 Out of scope for the MVP
 
@@ -107,7 +107,8 @@ antenna/
     ├── design/                 # the visual design: pages, screens, tokens.md, tokens-dark.md
     ├── release-notes/es/       # the Spanish release notes, one file for each version
     ├── adr/
-    └── plans/
+    ├── plans/
+    └── reports/                # one stage report for each completed stage
 ```
 
 The groups under `crates/` are exactly `storage/`, `inference/` and `engines/`. Each group holds crates of one kind. Each other directory under `crates/` is one crate. `docs/standards.md` section 3.1 gives the naming rule.

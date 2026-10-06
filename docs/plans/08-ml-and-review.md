@@ -426,7 +426,7 @@ pub enum ReviewError {
 10. Write `mel.rs`, `decode.rs` and `transcriber/mod.rs`. Use the Whisper model of `candle-transformers`. Use the decoding of the candle Whisper example as reading material, and write the decoder in the style of this repository.
 11. Write `queue.rs` with its tests. Decision rule 6 defines the test transcriber.
 12. Write the nightly tests in `tests/transcribe.rs`. Each test gets its files with one call, `ModelStore::open_default()?.ensure(WHISPER_SMALL.artifacts, &|_| {}, &AtomicBool::default())?` (or the turbo model), and decodes `jfk.flac` with `symphonia`.
-13. Run the nightly tests one time on the reference machine and record the transcription time of `jfk.flac` for each model in the PR.
+13. Run the nightly tests one time on the reference machine and record the transcription time of `jfk.flac` for each model in the stage report.
 14. Run `cargo xtask check`. Fix each failure.
 15. Do the quality gate in `docs/standards.md` section 20.
 

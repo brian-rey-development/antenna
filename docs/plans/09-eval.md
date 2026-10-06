@@ -231,7 +231,7 @@ The first part skips the tests of `crates/audio/tests/device.rs`, because the ru
 6. Write `bench.rs`, `wer.rs` and `report.rs`.
 7. Write `main.rs` and `args.rs`.
 8. Write `docs/benchmarks.md` with the four empty tables.
-9. Write `.github/workflows/nightly.yml`. Start it with `workflow_dispatch` on the stage branch.
+9. Write `.github/workflows/nightly.yml`. Start it with `workflow_dispatch` on `main`.
 10. Run `cargo xtask check`. Fix each failure.
 11. Do the quality gate in `docs/standards.md` section 20.
 
@@ -252,7 +252,7 @@ The first part skips the tests of `crates/audio/tests/device.rs`, because the ru
 | AC-09-11 | `wer` exits with code 1 when the WER is above the limit | Test `wer_fails_when_above_limit`, marked `#[ignore = "needs models"]`, with the fake voice (tones give a WER of 100%) |
 | AC-09-12 | `bench --check-budgets` exits with code 1 when a value is outside its budget | Test `bench_fails_budget_check_when_rtf_above_limit` with a synthetic measurement |
 | AC-09-13 | The crate has no copy of normalization, alignment or Whisper code | `rg -n -e "fn normalize" -e "fn align" -e "whisper::model" tools/eval/src` prints nothing |
-| AC-09-14 | The nightly workflow passes | The `workflow_dispatch` run on the stage branch is green. Link it in the PR |
+| AC-09-14 | The nightly workflow passes | The `workflow_dispatch` run on `main` is green. Link it in the stage report |
 | AC-09-15 | `budget` returns the values of the budget tables | Tests `budget_uses_default_rtf_when_voice_is_default`, `budget_uses_other_rtf_when_voice_is_other`, `budget_limits_memory_when_qwen3_max`, `budget_has_no_ttfa_when_quality_is_max`, `budget_has_no_ttfa_when_quality_is_fast` and `budget_is_none_when_engine_is_fake` |
 | AC-09-16 | `bench --check-budgets` exits with code 2 for an engine without a budget | Test `bench_fails_budget_check_when_engine_has_no_budget` with the fake voice |
 | AC-09-17 | No other file of the crate holds a budget value | `rg -l "ttfa_warm:" tools/eval/src` prints only `tools/eval/src/budgets.rs` |

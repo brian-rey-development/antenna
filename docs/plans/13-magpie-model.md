@@ -268,7 +268,7 @@ The commands of AC-13-01 are these.
 1. If a frontend test fails, compare the word split before the G2P lookup. Most differences come from the punctuation and apostrophe rules of `IPATokenizer`.
 2. If a GGUF tensor has a shape that is the reverse of the PyTorch shape, transpose it in `model/mod.rs` when you load it. The GGUF stores the dimensions in GGML order.
 3. If the greedy parity test fails after the module tests pass, compare the attention prior of each step. Then compare the EOS decision.
-4. If the reference generation of a greedy sentence has a tie in its first 25 steps, change that sentence in `dump_fixtures.py`. Then run the script again. A tie is a difference smaller than 1e-4 between the two best logits of a code. Write the old sentence and the tie step in the PR. Do not change the exact match of AC-13-11 and AC-13-12.
+4. If the reference generation of a greedy sentence has a tie in its first 25 steps, change that sentence in `dump_fixtures.py`. Then run the script again. A tie is a difference smaller than 1e-4 between the two best logits of a code. Write the old sentence and the tie step in the stage report. Do not change the exact match of AC-13-11 and AC-13-12.
 5. The NeMo reference can use random grapheme replacement even with probability 1.0. In that case, set the `_rng` of the G2P to a fixed seed in the tool. Write the reason in the script.
 6. Antenna does not apply the NeMo WFST text normalization in the MVP. The number subset of the eval corpus measures the effect in stage 14. Do not write a text normalizer in this stage.
 7. If the alignment estimate needs the iteration order of a Python `dict`, use a `Vec` of key and value pairs in insertion order in Rust.

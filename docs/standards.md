@@ -275,7 +275,7 @@ crates/engines/<name>/
 1. Do not allocate memory inside a per-sample or per-frame loop. Allocate before the loop with `Vec::with_capacity` and reuse the buffer. `[review]`
 2. Do not use `clone()` to satisfy the borrow checker. Change the ownership or the lifetimes. The `redundant_clone` lint finds a part of these clones. `[clippy]`
 3. Do not add `#[inline]` without a benchmark that shows the improvement. `[review]`
-4. Each performance claim in a PR has a benchmark or a `tracing` span measurement. `[review]`
+4. Each performance claim in a commit or a stage report has a benchmark or a `tracing` span measurement. `[review]`
 5. Load model weights with memory mapping when the format permits it (safetensors, GGUF). `[review]`
 6. The performance budgets in `docs/architecture.md` section 8 are acceptance criteria. A change that makes a budget fail is a defect. `[review]`
 
@@ -354,7 +354,7 @@ The comment density check of rule 1 counts only `//` lines. It does not count `/
 4. Tests are deterministic. They do not use the internet, wall-clock time or a random seed that changes. A test can use a local HTTP server from `tiny_http`. `[review]`
 5. Code that waits or compares ages takes the current time or the delay as a parameter. A test gives a fixed value. `[review]`
 6. The stage that owns a budget from `docs/architecture.md` section 8 measures it with `divan`, `hyperfine` or `antenna-eval` on the reference machine. A unit test or an integration test does not measure time. `[review]`
-7. Use `insta` for snapshot tests of text output. Review each snapshot change in the PR. `[review]`
+7. Use `insta` for snapshot tests of text output. Review each snapshot change in the diff before the commit. `[review]`
 8. Use `proptest` for invariants of the text crate, for example "the segment ranges cover the document in order". `[review]`
 9. Tests that need downloaded models have the `#[ignore = "needs models"]` attribute. The nightly CI job runs them with `--run-ignored all`. `[review]`
 10. Each defect fix includes a test that fails before the fix. `[review]`
@@ -363,21 +363,21 @@ The comment density check of rule 1 counts only `//` lines. It does not count `/
 ## 15. Git
 
 1. Use Conventional Commits. The scope is the crate role, for example `feat(text): segment sentences with SRX rules`. `[review]`
-2. Each commit compiles and passes `cargo xtask check`. `[review]`
-3. Use one branch for each stage, with the name `stage/<NN>-<name>`. `[review]`
-4. Each PR description lists each acceptance criterion of the stage with its evidence. The evidence is a test name, or a command and its output. `[review]`
+2. Each commit compiles and passes `cargo xtask check` before the push. `[review]`
+3. All commits go to `main`. A stage that runs at the same time as other stages uses a git worktree with the local branch `stage/<NN>-<name>`. At the end, the agent rebases it onto `main` and fast-forwards `main`. The remote has only `main`. `[review]`
+4. The last commit of a stage adds the stage report `docs/reports/<NN>-<name>.md`. It lists each acceptance criterion of the stage with its evidence, as `docs/plans/README.md` section 2.1 defines. `[review]`
 
 ## 16. Definition of done
 
 A stage or a change is done when all of these conditions are true. This is the only definition of done.
 
 1. `cargo xtask check` exits with code 0 on a clean clone.
-2. Each acceptance criterion of the stage has evidence in the PR description.
+2. Each acceptance criterion of the stage has evidence in the stage report.
 3. No lint threshold, test or fixture changed to make a check pass.
 4. Each new `#[expect]` has a reason that a reviewer can check.
 5. Each new public item has documentation in STE-80.
 6. If a contract in `docs/architecture.md` changed, the document and an ADR describe the change.
-7. The PR changes only the files in the scope of the stage and the documents that the stage names.
+7. The commits of the stage change only the files in the scope of the stage, the documents that the stage names and the stage report.
 8. The quality gate of section 20 is done.
 
 ## 17. Code review checklist
@@ -405,7 +405,7 @@ Lints find mechanical defects. These principles define the quality level that th
 6. **The common path is short.** Use `?`, `let ... else` and early returns. The successful path is the least indented code in the function.
 7. **No boolean parameters.** Use an enum with named variants. The `max-fn-params-bools = 0` threshold finds boolean parameters.
 8. **Immutable by default.** Keep each `mut` binding in the smallest possible scope.
-9. **Delete before you add.** The best change removes code. A PR that adds a feature also removes the code that the feature makes unnecessary.
+9. **Delete before you add.** The best change removes code. A change that adds a feature also removes the code that the feature makes unnecessary.
 
 ## 19. Exemplars
 
@@ -515,7 +515,7 @@ This is the shape of the `fake` engine. The function has no flags, no state mach
 A stage is complete after these three steps in sequence.
 
 1. **Automatic checks.** `cargo xtask check` passes.
-2. **Independent review.** A new agent session gets the diff, the stage file, `docs/architecture.md`, all of this document and `docs/writing.md`. It checks each `[review]` rule. It reads every changed file completely and lists each finding. The author fixes each finding or writes the reason to reject it in the PR.
+2. **Independent review.** A new agent session gets the diff, the stage file, `docs/architecture.md`, all of this document and `docs/writing.md`. It checks each `[review]` rule. It reads every changed file completely and lists each finding. The author fixes each finding or writes the reason to reject it in the stage report.
 3. **Simplification pass.** The author reads the complete diff one more time and removes each line that the stage does not need. Examples are unused generality, defensive checks for impossible states, forwarding functions and comments that tell what the code does.
 
-The PR description records the result of steps 2 and 3.
+The stage report records the result of steps 2 and 3.

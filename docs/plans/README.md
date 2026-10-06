@@ -34,12 +34,27 @@ The implementation has 19 stages. Each stage has one goal, a fixed scope and acc
 
 ## 2. How to run a stage
 
-1. Make the branch `stage/<NN>-<name>` from `main`.
-2. Give the agent the goal prompt in section 4.
-3. The agent does the tasks in sequence and proves each acceptance criterion.
-4. The agent does the quality gate in `docs/standards.md` section 20.
-5. The agent opens a PR. The PR lists each acceptance criterion with its evidence.
-6. A human merges the PR.
+All work goes to `main`. The remote has only the `main` branch.
+
+1. If the stage runs alone, the agent works on `main` directly.
+2. Stages that run at the same time (section 1.1) each get a git worktree. The agent makes it with the local branch `stage/<NN>-<name>` from `main`.
+3. Give the agent the goal prompt in section 4.
+4. The agent does the tasks in sequence and proves each acceptance criterion.
+5. The agent does the quality gate in `docs/standards.md` section 20.
+6. The agent writes the stage report `docs/reports/<NN>-<name>.md` in the last commit of the stage.
+7. In a worktree, the agent rebases the branch onto `main`, runs `cargo xtask check` and fast-forwards `main`. Then it deletes the local branch.
+8. The agent pushes `main`. CI runs on the push.
+
+### 2.1 Stage report
+
+The stage report is the record of the stage. It contains these items.
+
+1. Each acceptance criterion with its evidence. The evidence is a test name, a command and its output, or a measurement.
+2. The result of steps 2 and 3 of the quality gate in `docs/standards.md` section 20.
+3. Each measurement of the stage.
+4. Each difference from the plan that a decision rule permits, with the reason.
+5. The results of the manual QA steps.
+6. A sign-off line for each manual acceptance criterion. The project owner writes "approved" and the date on the line.
 
 If the agent is blocked, it writes a "Blocked" section at the end of the stage file and stops. A human reads the section, makes the decision and adds it to the "Decision rules" of the stage.
 
@@ -77,7 +92,10 @@ Do the tasks in sequence. Change only the files in the "Scope" section.
 The stage is complete when:
 1. every acceptance criterion has evidence,
 2. `cargo xtask check` passes,
-3. the quality gate in docs/standards.md section 20 is done.
+3. the quality gate in docs/standards.md section 20 is done,
+4. the stage report docs/reports/<NN>-<name>.md is committed,
+5. main contains the commits of the stage and is pushed.
+Follow docs/plans/README.md section 2 for the worktree, the rebase and the push.
 If you cannot meet a criterion and no decision rule applies, stop and write a "Blocked" section.
 Do not change a test, lint, threshold, fixture or criterion to make a check pass.
 ```

@@ -353,7 +353,7 @@ Write the ADRs 0001 to 0007, 0011 and 0012 of `docs/architecture.md` section 16.
 | ID | Criterion | Check |
 |---|---|---|
 | AC-01-01 | All checks pass on a clean clone | `cargo xtask check` exits with code 0 |
-| AC-01-02 | CI passes on macOS, Linux and Windows | The CI run of the PR is green on the three jobs |
+| AC-01-02 | CI passes on macOS, Linux and Windows | The CI run of the push to `main` is green on the three jobs |
 | AC-01-03 | Each `lint-repo` check finds its violation | One xtask test for each row of `docs/standards.md` section 13, named `lint_repo_finds_<check>` |
 | AC-01-04 | `lint-repo` finds a dependency that the graph does not permit | Test `lint_repo_finds_forbidden_dependency` |
 | AC-01-05 | `antenna-core` has only `thiserror` and `strum` as normal dependencies | `cargo tree -p antenna-core -e normal --depth 1` shows only these two |

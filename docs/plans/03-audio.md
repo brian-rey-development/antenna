@@ -378,7 +378,7 @@ The Ogg granule position counts samples at `OGG_GRANULE_RATE_HZ`, with the pre-s
 11. Write the feed loop tests in the tests module of `feed.rs`, and write `tests/export.rs`. Make the stored segment fixtures in the tests with `hound` and a generated sine. Do not commit audio files.
 12. Write `tests/device.rs`. Mark each test `#[ignore = "needs audio device"]`.
 13. Write `benches/export.rs` with `divan` and `examples/seek_latency.rs`. The example loads a track of three stored segments and seeks 20 times to random stored positions. It prints the median and the maximum time from `seek` to the first target sample at the callback.
-14. Run the device tests, the benchmark and the example on the reference machine. Record the output in the PR.
+14. Run the device tests, the benchmark and the example on the reference machine. Record the output in the stage report.
 15. Run `cargo xtask check`. Fix each failure.
 16. Do the quality gate in `docs/standards.md` section 20.
 
@@ -411,11 +411,11 @@ The Ogg granule position counts samples at `OGG_GRANULE_RATE_HZ`, with the pre-s
 | AC-03-23 | Normalization obeys the true peak limit of -1 dBTP | Test `export_limits_true_peak_when_crest_high` with a fixture of short clicks at -20 LUFS |
 | AC-03-24 | Silence exports without gain and without an error | Test `export_keeps_silence_when_loudness_infinite` |
 | AC-03-25 | A cancelled or failed export leaves no file and no `.part` file | Tests `export_leaves_no_file_when_cancelled` and `export_leaves_no_file_when_encoder_fails` |
-| AC-03-26 | Export of 10 minutes of stored 24 kHz audio to MP3 with normalization takes 3 s or less on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-audio --bench export` reports a median of 3 s or less. Add the output to the PR |
-| AC-03-27 | Playback of a 3-segment track on the default device advances `position` through all segments with 0 underruns **(manual)** | On the reference machine (Apple M5 Pro, 24 GB), `cargo nextest run -p antenna-audio --run-ignored only -E 'test(player_plays_track_when_device_available)'` passes. Add the output to the PR |
+| AC-03-26 | Export of 10 minutes of stored 24 kHz audio to MP3 with normalization takes 3 s or less on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-audio --bench export` reports a median of 3 s or less. Add the output to the stage report |
+| AC-03-27 | Playback of a 3-segment track on the default device advances `position` through all segments with 0 underruns **(manual)** | On the reference machine (Apple M5 Pro, 24 GB), `cargo nextest run -p antenna-audio --run-ignored only -E 'test(player_plays_track_when_device_available)'` passes. Add the output to the stage report |
 | AC-03-28 | `antenna-audio` depends only on `antenna-core` in the workspace | `cargo xtask lint-repo` passes |
 | AC-03-29 | `DeviceNotAvailable` sets `paused`, sends `DeviceLost` and moves the state to `Paused` | Test `device_lost_pauses_track_when_device_not_available` calls `on_stream_error` and runs the feed loop with a test sink |
-| AC-03-30 | A seek to a stored position plays its first sample at the device in 100 ms or less **(manual)** | On the reference machine (Apple M5 Pro, 24 GB), `cargo run --release -p antenna-audio --example seek_latency` prints a maximum of 100 ms or less. Add the output to the PR |
+| AC-03-30 | A seek to a stored position plays its first sample at the device in 100 ms or less **(manual)** | On the reference machine (Apple M5 Pro, 24 GB), `cargo run --release -p antenna-audio --example seek_latency` prints a maximum of 100 ms or less. Add the output to the stage report |
 | AC-03-31 | `Track::new` makes a stored segment for each `Some` and a pending segment for each `None` | Test `track_marks_segment_pending_when_entry_none` |
 | AC-03-32 | `LiveOutput::open` with a rate that is not the track rate returns `RateMismatch` | Test `live_output_fails_when_rate_differs` |
 | AC-03-33 | A seek to an offset larger than the played frames gives a correct position | Test `position_is_correct_when_seek_offset_exceeds_played_frames` |
@@ -436,7 +436,7 @@ The Ogg granule position counts samples at `OGG_GRANULE_RATE_HZ`, with the pre-s
 3. If `cpal::Stream` is not `Send` on a CI target, create the stream on the feed thread and keep it there. The feed thread already owns the stream, so no other change is necessary.
 4. If the device does not support `f32` samples, build the stream in the native sample format and convert with `cpal::Sample::from_sample`. Do not allocate in the conversion.
 5. If `assert_no_alloc` reports an allocation in `fill`, remove the allocation. Do not move the check out of the test.
-6. If the `rubato` FFT resampler cannot work with a fixed input chunk, use its synchronous sinc resampler with the same chunk size. Write the reason in the PR.
+6. If the `rubato` FFT resampler cannot work with a fixed input chunk, use its synchronous sinc resampler with the same chunk size. Write the reason in the stage report.
 7. The `symphonia` decode of an MP3 file can be longer than the input by the LAME encoder delay. Remove the delay and the padding that the Xing/LAME header records, then compare the duration.
 8. If a stored segment is not 16-bit mono PCM, return `AudioError::UnsupportedSegment`. Do not convert other formats. Stage 05 writes only this format.
 9. If the seek budget of AC-03-30 fails, decrease `PREFILL_DURATION_MS` before any other change. Do not change the budget.

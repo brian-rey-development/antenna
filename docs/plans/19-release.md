@@ -144,7 +144,7 @@ Each file has the "one platform" format of `cargo-packager-updater`.
 | File | Content |
 |---|---|
 | `README.md` | What Antenna does in 3 sentences, 2 screenshots of the Studio and the Library, the supported languages, the system requirements (macOS 14, Apple Silicon, 16 GB of memory, 8 GB of free disk space for all voices), the install procedure, the build procedure, and the license |
-| `CONTRIBUTING.md` | The read order of `CLAUDE.md`, the `cargo xtask check` command, the branch and commit rules of `docs/standards.md` section 15, the STE-80 rule, and the link to `docs/adding-an-engine.md` |
+| `CONTRIBUTING.md` | The read order of `CLAUDE.md`, the `cargo xtask check` command, the commit rules of `docs/standards.md` section 15, the STE-80 rule, and the link to `docs/adding-an-engine.md` |
 | `docs/adding-an-engine.md` | The procedure of `docs/architecture.md` section 7.5 as a numbered walk-through, with the `fake` engine as the example, the engine crate layout, and the commands that prove each step |
 | `docs/release.md` | The procedure to make a stable release and a beta release, the secrets, the update feeds, and the checks after a release |
 | `CHANGELOG.md` | The "Keep a Changelog" format, with one section for 0.1.0 |
@@ -165,16 +165,16 @@ Each file has the "one platform" format of `cargo-packager-updater`.
 11. Write `README.md`, `CONTRIBUTING.md`, `docs/adding-an-engine.md`, `docs/release.md`, `CHANGELOG.md` and `docs/release-notes/es/0.1.0.md`.
 12. Run `cargo xtask check`. Fix each failure.
 13. Do the quality gate in `docs/standards.md` section 20.
-14. After the PR is merged, the project owner pushes the tag `v0.1.0-beta.1`, approves the workflow run and publishes the beta release. The feed workflow updates `beta.json`.
-15. Open a second PR that sets the workspace version to `0.1.0` and adds the date of 0.1.0 to `CHANGELOG.md`.
-16. After that PR is merged, the project owner pushes the tag `v0.1.0` and approves the workflow run.
+14. After the commit is on `main`, the project owner pushes the tag `v0.1.0-beta.1`, approves the workflow run and publishes the beta release. The feed workflow updates `beta.json`.
+15. Make a second commit on `main` that sets the workspace version to `0.1.0` and adds the date of 0.1.0 to `CHANGELOG.md`.
+16. After that commit is on `main`, the project owner pushes the tag `v0.1.0` and approves the workflow run.
 17. Do the clean Mac test of AC-19-09 with the draft release.
 18. The project owner publishes the release. The feed workflow updates both feed files.
 19. Do the update test of AC-19-11.
 
 ### QA with real engines
 
-Do these steps with the unsigned `.app` of task 6 and a new data directory. Write the result of each step in the PR.
+Do these steps with the unsigned `.app` of task 6 and a new data directory. Write the result of each step in the stage report.
 
 1. Do steps 2 to 11 of the manual QA script of stage 16 with the default voice of Spanish. In step 11, the file plays speech.
 2. Do steps 2 to 11 of the same script with the default voice of English. In step 2, paste 3 paragraphs of English text, and the language select shows English.
@@ -202,12 +202,12 @@ Do these steps with the unsigned `.app` of task 6 and a new data directory. Writ
 | AC-19-13 | Each voice at each quality meets the budgets of `docs/architecture.md` section 8 **(manual)** | On the Apple M5 Pro 24 GB, `antenna-eval bench --voice <id> --quality <q> --check-budgets` exits with code 0 for each voice and each quality. `docs/benchmarks.md` has one row for each run with TTFA, RTF and peak memory |
 | AC-19-14 | Each voice meets the WER target of `docs/architecture.md` section 11.2 **(manual)** | `docs/benchmarks.md` has the WER of each voice from `antenna-eval wer`, and each value is in the target |
 | AC-19-15 | The project owner approved each default voice **(manual)** | The sign-off in `docs/benchmarks.md` |
-| AC-19-16 | The documents obey STE-80 **(manual)** | The reviewer checks `README.md`, `CONTRIBUTING.md`, `docs/adding-an-engine.md` and `docs/release.md` against each rule of `docs/writing.md` section 1 and lists each finding and its fix in the PR. `cargo xtask lint-repo` passes |
-| AC-19-17 | The walk-through in `docs/adding-an-engine.md` works **(manual)** | A new agent session that did not write it follows it with a copy of the `fake` engine named `example`. `cargo xtask check` passes. The session then deletes the copy and writes the result in the PR |
+| AC-19-16 | The documents obey STE-80 **(manual)** | The reviewer checks `README.md`, `CONTRIBUTING.md`, `docs/adding-an-engine.md` and `docs/release.md` against each rule of `docs/writing.md` section 1 and lists each finding and its fix in the stage report. `cargo xtask lint-repo` passes |
+| AC-19-17 | The walk-through in `docs/adding-an-engine.md` works **(manual)** | A new agent session that did not write it follows it with a copy of the `fake` engine named `example`. `cargo xtask check` passes. The session then deletes the copy and writes the result in the stage report |
 | AC-19-18 | The release has the `.dmg`, the checksum, the update archive, its signature and the changelog section **(manual)** | The GitHub release page lists the five items |
 | AC-19-19 | The checksum is correct **(manual)** | `shasum -a 256 -c Antenna-0.1.0-arm64.dmg.sha256` reports "OK" |
 | AC-19-20 | Both feeds point to 0.1.0 after the stable release **(manual)** | `curl -L` of each feed URL shows `"version": "0.1.0"` |
-| AC-19-21 | The "QA with real engines" script passes **(manual)** | The PR lists the result of each of the 6 steps |
+| AC-19-21 | The "QA with real engines" script passes **(manual)** | The stage report lists the result of each of the 6 steps |
 | AC-19-22 | The release workflow rejects a tag that is not the workspace version **(manual)** | Push the tag `v9.9.9` to a fork. The workflow fails at the version step |
 
 ## Decision rules

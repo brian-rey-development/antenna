@@ -315,9 +315,9 @@ Write `docs/adr/0010-segment-store.md`. It records why generation and playback a
 | AC-05-22 | A segment file is not visible before `commit`, and a dropped writer leaves no file | Tests `segment_absent_until_commit` and `dropped_writer_deletes_temp_file` |
 | AC-05-23 | `commit` keeps an existing file with the same key | Test `commit_keeps_existing_file_when_key_exists` |
 | AC-05-24 | Garbage collection deletes unused old segments and keeps used or young segments | Test `gc_deletes_only_unused_old_segments` |
-| AC-05-25 | `open` with 1000 documents takes 100 ms or less in a release build on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-library` median of `open_1000`. Add the result to the PR |
-| AC-05-26 | `list` with a two-term query over 1000 documents of 20 KB takes 16 ms or less on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-library` median of `search_1000`. Add the result to the PR |
-| AC-05-27 | `build_search_index` for 1000 documents of 20 KB takes 1 s or less on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-library` median of `index_1000`. Add the result to the PR |
+| AC-05-25 | `open` with 1000 documents takes 100 ms or less in a release build on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-library` median of `open_1000`. Add the result to the stage report |
+| AC-05-26 | `list` with a two-term query over 1000 documents of 20 KB takes 16 ms or less on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-library` median of `search_1000`. Add the result to the stage report |
+| AC-05-27 | `build_search_index` for 1000 documents of 20 KB takes 1 s or less on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-library` median of `index_1000`. Add the result to the stage report |
 | AC-05-28 | The default root uses `ANTENNA_DATA_DIR` when it is set | Tests `default_root_uses_env_when_set` and `default_root_uses_data_dir_when_env_absent` |
 | AC-05-29 | `antenna-library` depends only on `antenna-core` in the workspace | `cargo xtask lint-repo` passes |
 | AC-05-30 | ADR 0010 exists and has 60 lines or less | `wc -l docs/adr/0010-segment-store.md` |

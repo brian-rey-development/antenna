@@ -15,8 +15,8 @@ Stage 16 built the shell and the Studio. This stage adds the three screens that 
 3. `docs/standards.md` sections 5, 7, 13, 14, 18 and 19
 4. `docs/writing.md` section 4 (glossary)
 5. `docs/design/screens/biblioteca.png`, `docs/design/screens/voces.png` and `docs/design/screens/modelos.png`, and the pages with the same names in `docs/design/pages/`
-6. `docs/design/tokens.md`, `docs/plans/16-desktop-studio.md`, the merged code of `apps/desktop` and the component table of stage 15
-7. The public API of `antenna-audio`, `antenna-library`, `antenna-models`, `antenna-pipeline`, `antenna-engine-registry` and `antenna-review` as merged by stages 03, 04, 05, 06 and 08
+6. `docs/design/tokens.md`, `docs/plans/16-desktop-studio.md`, the code of `apps/desktop` on `main` and the component table of stage 15
+7. The public API of `antenna-audio`, `antenna-library`, `antenna-models`, `antenna-pipeline`, `antenna-engine-registry` and `antenna-review` as stages 03, 04, 05, 06 and 08 committed it to `main`
 
 ## Scope
 
@@ -66,7 +66,7 @@ apps/desktop/benches/
 
 ### Consumed API
 
-If a name or a signature is different in the merged code, use the merged code and record the difference in the PR.
+The code on `main` can use a different name or signature. In that case, use the code on `main` and record the difference in the stage report.
 
 | Crate | Items |
 |---|---|
@@ -223,13 +223,13 @@ Add `default_engine: Option<EngineId>` to `Settings`. The default is `None`, whi
 8. Add `default_engine` to `Settings` and use it in `Settings::voice_for`.
 9. Write `benches/library_search.rs`. It seeds a temporary library with 1000 documents of 2 KB and builds the search index. Then it measures `Library::list` with the filter `All` for each of 10 queries. `LibraryView` calls `Library::list` one time for each refresh and adds no other work, so the bench measures the refresh. The bench uses `antenna-library` directly, because `antenna-desktop` has only a binary target.
 10. Run the app with `cargo run -p antenna-desktop --features engine-fake`. Do the manual QA script below.
-11. Measure the budget of AC-17-12. Write the result in the PR.
+11. Measure the budget of AC-17-12. Write the result in the stage report.
 12. Run `cargo xtask check`. Fix each failure.
 13. Do the quality gate in `docs/standards.md` section 20.
 
 ### Manual QA script
 
-Do these steps with `--features engine-fake` in a release build. Write the result of each step in the PR.
+Do these steps with `--features engine-fake` in a release build. Write the result of each step in the stage report.
 
 1. Seed a data directory with `seed_library` and 40 documents. Start the app with that directory. Open the Library. The documents are in period groups.
 2. Type a word that occurs in three documents. Only those three rows stay.
@@ -259,8 +259,8 @@ Do these steps with `--features engine-fake` in a release build. Write the resul
 | AC-17-10 | The default engine setting changes the default voice of each language | Test `settings_voice_for_uses_engine_when_default_engine_is_set` |
 | AC-17-11 | The Models screen does not poll | `rg -e timer -e interval apps/desktop/src/screens/models apps/desktop/src/state/system.rs` returns no lines |
 | AC-17-12 | Search and filter with 1000 documents take 16 ms or less **(manual)** | On the Apple M5 Pro 24 GB, `cargo bench -p antenna-desktop --bench library_search` reports a median of 16 ms or less for each query |
-| AC-17-13 | The three screens match the design **(manual)** | Take a screenshot of each screen at `LAYOUT_WINDOW`. Open each one and its file in `docs/design/screens/` in Preview at the same scale. For each control, measure the height, the padding and the gap with the rectangle selection. Each value is in 1 px of the design. Each color that Digital Color Meter reads is the token value. The PR contains the images and the list of measured controls |
-| AC-17-14 | The manual QA script passes **(manual)** | The PR lists the result of each of the 11 steps |
+| AC-17-13 | The three screens match the design **(manual)** | Take a screenshot of each screen at `LAYOUT_WINDOW`. Open each one and its file in `docs/design/screens/` in Preview at the same scale. For each control, measure the height, the padding and the gap with the rectangle selection. Each value is in 1 px of the design. Each color that Digital Color Meter reads is the token value. The stage report contains the images and the list of measured controls |
+| AC-17-14 | The manual QA script passes **(manual)** | The stage report lists the result of each of the 11 steps |
 | AC-17-15 | No raw design value is in `apps/desktop/src` | `cargo xtask lint-repo` passes |
 | AC-17-16 | Play from the Library plays the document after its timeline loads | Test `play_document_plays_when_timeline_arrives` |
 | AC-17-17 | A preview stops the Studio playback, and a Studio play stops the preview | Tests `preview_stops_session_when_session_plays` and `session_play_drops_preview_when_preview_plays` |
@@ -275,7 +275,7 @@ Do these steps with `--features engine-fake` in a release build. Write the resul
 2. If `sysinfo` cannot read the chip name, show only the total memory.
 3. If the confirmation popover cannot open from a menu item in `gpui-component`, open it from the row instead. Do not remove files without a confirmation.
 4. If the design example data shows engines that the registry does not have, show only the registry engines. The design data is an example.
-5. If `antenna_library::fold` is not public in the merged code, write a "Blocked" section. Do not copy the fold logic.
+5. If `antenna_library::fold` is not public in the code on `main`, write a "Blocked" section. Do not copy the fold logic.
 
 ## Out of scope
 

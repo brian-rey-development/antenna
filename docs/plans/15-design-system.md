@@ -336,32 +336,32 @@ GPUI has no blur filter. The waveform uses a CPU mask that gives the same result
 | AC-15-12 | Each icon of `tokens.md` section 6 has an SVG file and an `Icon` variant | Test `each_icon_has_an_asset` |
 | AC-15-13 | The fonts load and each type token finds its family | Test `each_type_style_resolves_a_font`, which runs with a GPUI test app context |
 | AC-15-14 | Each font has its license | Each family directory in `crates/ui/assets/fonts/` has `OFL.txt` |
-| AC-15-15 | The light gallery matches the design, and the derived rows are approved **(manual)** | The project owner opens `docs/design/screens/actual/gallery-light.png` and the matching image of `docs/design/screens/2x/` in Preview at the same scale. For each component, the owner measures the height, the padding and the gap with the rectangle selection. Each value is in 1 px of the design at scale 1. Each color that Digital Color Meter reads is the token value. The owner approves each derived row of the component table and signs off in the PR |
-| AC-15-16 | The project owner approves the dark theme **(manual)** | The project owner reads `docs/design/tokens-dark.md`, looks at `gallery-dark.png` and signs off in the PR |
+| AC-15-15 | The light gallery matches the design, and the derived rows are approved **(manual)** | The project owner opens `docs/design/screens/actual/gallery-light.png` and the matching image of `docs/design/screens/2x/` in Preview at the same scale. For each component, the owner measures the height, the padding and the gap with the rectangle selection. Each value is in 1 px of the design at scale 1. Each color that Digital Color Meter reads is the token value. The owner approves each derived row of the component table and signs off in the stage report |
+| AC-15-16 | The project owner approves the dark theme **(manual)** | The project owner reads `docs/design/tokens-dark.md`, looks at `gallery-dark.png` and signs off in the stage report |
 | AC-15-17 | The project owner accepts the contrast exceptions **(manual)** | The project owner signs off on the exception table of the "Contrast test" deliverable, or gives darker values |
-| AC-15-18 | No component contains a second surface with its own fill and ring **(manual)** | The reviewer checks each component against `docs/architecture.md` section 12.1 rule 6 and lists the result for each component in the PR |
-| AC-15-19 | The gallery shows each component in each state of the component table **(manual)** | The reviewer opens the gallery and checks each state of each row of the component table. The PR lists each row with "shown" or the missing state |
+| AC-15-18 | No component contains a second surface with its own fill and ring **(manual)** | The reviewer checks each component against `docs/architecture.md` section 12.1 rule 6 and lists the result for each component in the stage report |
+| AC-15-19 | The gallery shows each component in each state of the component table **(manual)** | The reviewer opens the gallery and checks each state of each row of the component table. The stage report lists each row with "shown" or the missing state |
 | AC-15-20 | `gpui_component` occurs only in `crates/ui` | `rg -l gpui_component --glob '*.rs' --glob '!crates/ui/**' .` returns no lines |
 
 ## Decision rules
 
-1. If a value that a component needs is not in `tokens.md`, find it in the HTML pages. If the pages have it, add a row to `tokens.md` with a Rust name, the value and the page name. List the addition in the PR. If the pages do not have it, write a "Blocked" section.
-2. If two pages use different values for one role, use the value of the five app screens. Do not use the value of the Flow page. List the case in the PR.
+1. If a value that a component needs is not in `tokens.md`, find it in the HTML pages. If the pages have it, add a row to `tokens.md` with a Rust name, the value and the page name. List the addition in the stage report. If the pages do not have it, write a "Blocked" section.
+2. If two pages use different values for one role, use the value of the five app screens. Do not use the value of the Flow page. List the case in the stage report.
 3. If a `gpui-component` primitive cannot show a component with the token values, build the component with GPUI elements in `components/`. Do not fork `gpui-component`.
 4. If GPUI cannot draw stroked paths with round caps in `canvas`, draw the avatar into a CPU mask with the method of the waveform. Do not add a crate.
 5. If a design color pair fails the contrast test and is not in the exception table, write a "Blocked" section. Do not change the color.
 6. If `gpui-component` 0.7.1 does not compile with `gpui-pre =0.3.8` on a platform, write a "Blocked" section. Do not change the pins.
-7. If `gpui-pre` 0.3.8 cannot draw an RGBA image from memory, write a "Blocked" section. Do not add a crate and do not remove the merged shape of the waveform.
+7. If `gpui-pre` 0.3.8 cannot draw an RGBA image from memory, write a "Blocked" section. Do not add a crate and do not remove the joined shape of the waveform.
 8. If GPUI does not report the "Reduce motion" setting, write a "Blocked" section. Do not add a crate. Do not read the setting with `unsafe` code, because `docs/standards.md` section 9 permits `unsafe` only in `antenna-ml`.
 9. If `gpui-component` 0.7.1 has no select primitive that fits the token values, build `Select` from a `Button` and a `Popover` of this stage.
 10. If `gpui::px` is not a `const fn` in `gpui-pre` 0.3.8, make each space, size and layout token a `pub fn` without arguments that returns `Pixels`. Keep the token names.
-11. If `gpui-component` 0.7.1 has no multi-line input with IME, build `TextArea` on the GPUI `EntityInputHandler` example of `gpui-pre` 0.3.8. Write the result in the PR.
+11. If `gpui-component` 0.7.1 has no multi-line input with IME, build `TextArea` on the GPUI `EntityInputHandler` example of `gpui-pre` 0.3.8. Write the result in the stage report.
 
 ### Facts to check
 
 | Fact | Check |
 |---|---|
-| GPUI 0.3.8 cannot set the `SOFT` and `opsz` axes of a variable font | Read the `FontFeatures` and `Font` types of `gpui-pre` 0.3.8. If GPUI can set font variations, use the variable font and skip the instances. Write the result in the PR |
+| GPUI 0.3.8 cannot set the `SOFT` and `opsz` axes of a variable font | Read the `FontFeatures` and `Font` types of `gpui-pre` 0.3.8. If GPUI can set font variations, use the variable font and skip the instances. Write the result in the stage report |
 | Fraunces, Figtree and DM Mono have no Reserved Font Name | Read the `OFL.txt` of each family. If a family has no Reserved Font Name, the instance can keep the original name, but this stage still renames it for clarity |
 | `gpui-pre` 0.3.8 can draw an RGBA image from memory | Find `RenderImage` or the equivalent type and its `img` source. Decision rule 7 applies when it does not exist |
 | `gpui-pre` 0.3.8 has a `canvas` element with a path builder that strokes | Find `PathBuilder::stroke` or the equivalent. Decision rule 4 applies when it does not exist |

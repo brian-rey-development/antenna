@@ -199,7 +199,7 @@ The caller decides the fallback language. `identify_language` does not use the l
 | AC-02-15 | The SRX rules parse for each language, and the number of ignored rules is recorded | Tests `srx_rules_parse_for_all_languages` and `srx_ignored_rule_count_is_known` |
 | AC-02-16 | Language identification is correct for each language fixture | Test `identify_language_finds_language_when_fixture` for the six fixtures |
 | AC-02-17 | Language identification returns `None` for a short or mixed text | Tests `identify_language_returns_none_when_text_is_short` and `identify_language_returns_none_when_unreliable` |
-| AC-02-18 | `prepare` on a 1 MB document takes less than 50 ms in a release build on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-text` median below 50 ms. Add the result to the PR |
+| AC-02-18 | `prepare` on a 1 MB document takes less than 50 ms in a release build on the reference machine (Apple M5 Pro, 24 GB) **(manual)** | `cargo bench -p antenna-text` median below 50 ms. Add the result to the stage report |
 | AC-02-19 | `antenna-text` depends only on `antenna-core` in the workspace | `cargo xtask lint-repo` passes |
 | AC-02-20 | Plain text keeps Markdown characters and indented lines | Test `prose_keeps_markup_characters_when_plain_text` |
 | AC-02-21 | The first-segment rule splits at the first whitespace after `first_segment_chars` when no clause boundary is in range and the sentence has more than `FIRST_SPLIT_FALLBACK_CHARS` characters | Test `split_first_uses_whitespace_when_no_clause_and_sentence_long` |

@@ -270,7 +270,7 @@ All parity tests run on CPU in f32 and have the attribute `#[ignore = "needs mod
 | ID | Criterion | Check |
 |---|---|---|
 | AC-11-01 | 24 voice prompt files exist, four for each language, each smaller than 32 KB | Commands 1 and 2 below the table |
-| AC-11-02 | Each reference clip sounds like its archetype, and the four voices of a language are easy to tell apart **(manual)** | The project owner listens and writes "approved" in the PR |
+| AC-11-02 | Each reference clip sounds like its archetype, and the four voices of a language are easy to tell apart **(manual)** | The project owner listens and writes "approved" in the stage report |
 | AC-11-03 | The two Base models give equal reference codes | `make_voices.py` exits with code 0 |
 | AC-11-04 | Both config files of both sizes parse | Tests `talker_config_parses_when_<size>` |
 | AC-11-05 | The tokenizer gives the reference ids for all 12 strings | Test `tokenizer_matches_reference_ids` |
@@ -300,7 +300,7 @@ The limits of AC-11-13 come from the real-time factor budgets of `docs/architect
 ## Decision rules
 
 1. If a parity test fails, follow `docs/architecture.md` section 14, rule 1. Compare the prompt embeddings first, then layer 0, then the last hidden state, then the logits.
-2. If the reference generation of the parity sentence has a tie in its first 50 frames, change the sentence in `dump_talker.py`. Then run the script again. A tie is a difference smaller than 1e-4 between the two best codebook 0 logits. Write the old sentence and the tie frame in the PR. Do not change the exact match of AC-11-10.
+2. If the reference generation of the parity sentence has a tie in its first 50 frames, change the sentence in `dump_talker.py`. Then run the script again. A tie is a difference smaller than 1e-4 between the two best codebook 0 logits. Write the old sentence and the tie frame in the stage report. Do not change the exact match of AC-11-10.
 3. Use `antenna_ml::Sampler` for random sampling. Mask the suppressed ids in the logits before the sampler call. If the sampler cannot express a rule of the reference, write a "Blocked" section, because the fix changes stage 08.
 4. Put the repetition penalty only on codebook 0, over the codebook 0 ids of the frames that this segment generated. The reference applies it through Hugging Face `generate`. AC-11-10 runs with the penalty on, so it proves the exact rule.
 5. Use `candle_nn::rotary_emb::rope` and `candle_nn::ops::rms_norm`. Do not write a custom kernel.

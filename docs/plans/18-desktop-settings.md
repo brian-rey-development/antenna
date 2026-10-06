@@ -15,8 +15,8 @@ Stages 16 and 17 built four screens with a partial settings file. This stage com
 3. `docs/standards.md` sections 5, 6, 7, 13, 14, 18 and 19
 4. `docs/writing.md` section 4 (glossary)
 5. `docs/design/screens/ajustes.png`, `docs/design/pages/ajustes.html` and `docs/design/tokens.md`
-6. `docs/plans/16-desktop-studio.md`, `docs/plans/17-desktop-library.md` and the merged code of `apps/desktop`
-7. The public API of `antenna-review` as merged by stage 08
+6. `docs/plans/16-desktop-studio.md`, `docs/plans/17-desktop-library.md` and the code of `apps/desktop` on `main`
+7. The public API of `antenna-review` as stage 08 committed it to `main`
 8. The `cargo-packager-updater` documentation for the version of `docs/architecture.md` section 10
 
 ## Scope
@@ -211,7 +211,7 @@ pub(crate) fn is_unread(running: Version, last_seen: Version, update: Option<Ver
 
 ### Manual QA script
 
-Do these steps with `--features engine-fake` in a release build. Write the result of each step in the PR.
+Do these steps with `--features engine-fake` in a release build. Write the result of each step in the stage report.
 
 1. Open Settings. Change the interface language to English. All screens show English text in the next frame.
 2. Change the appearance to "Dark". All screens use the dark theme. Select "System" and change the macOS appearance in System Settings. The app follows in less than 1 s.
@@ -239,8 +239,8 @@ Do these steps with `--features engine-fake` in a release build. Write the resul
 | AC-18-10 | The unread rule follows the "What's new" deliverable | Tests `news_is_unread_when_update_is_newer_than_last_seen`, `news_is_unread_when_running_is_newer_than_last_seen` and `news_is_read_when_last_seen_is_current` |
 | AC-18-11 | The update check has one wait, and the wait is a timer | The commands of the list "AC-18-11 commands" below the table |
 | AC-18-12 | The About section lists each engine license and its attribution | Test `about_rows_include_engine_when_registry_has_it` |
-| AC-18-13 | The Settings screen matches the design, without the out-of-scope row **(manual)** | At `LAYOUT_WINDOW`, scroll to each section and take one screenshot. Open each one and the matching part of `docs/design/screens/ajustes.png` in Preview at the same scale. For each row, measure the height, the padding and the gap with the rectangle selection. Each value is in 1 px of the design. Each color that Digital Color Meter reads is the token value. The PR contains the images |
-| AC-18-14 | The manual QA script passes **(manual)** | The PR lists the result of each of the 9 steps |
+| AC-18-13 | The Settings screen matches the design, without the out-of-scope row **(manual)** | At `LAYOUT_WINDOW`, scroll to each section and take one screenshot. Open each one and the matching part of `docs/design/screens/ajustes.png` in Preview at the same scale. For each row, measure the height, the padding and the gap with the rectangle selection. Each value is in 1 px of the design. Each color that Digital Color Meter reads is the token value. The stage report contains the images |
+| AC-18-14 | The manual QA script passes **(manual)** | The stage report lists the result of each of the 9 steps |
 | AC-18-15 | The app uses no CPU when no job runs and nothing plays, with automatic updates on **(manual)** | Start a local feed server with a feed of the running version. Start the release build with `ANTENNA_UPDATE_FEED` set to that feed and automatic updates on. Click the sidebar outside the editor. Wait 15 s, so the first check at 10 s ends. Run `ps -o cputime= -p $PID`, wait 10 s, and run it again. The two values are equal |
 | AC-18-16 | No raw design value is in `apps/desktop/src` | `cargo xtask lint-repo` passes |
 | AC-18-17 | The notes follow the interface language, with English when the Spanish notes are missing | Tests `release_notes_use_spanish_when_present` and `release_notes_use_english_when_spanish_is_missing` |

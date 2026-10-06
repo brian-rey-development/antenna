@@ -19,7 +19,7 @@ Antenna is a desktop app that reads text aloud with local TTS models. It plays t
 6. Do not change a contract in `docs/architecture.md` section 5 without approval and an ADR.
 7. Use `#[expect(lint, reason = "...")]` for each lint exception. Do not use `#[allow]`.
 8. Write zero comments, except comments that tell why. Do not write `TODO`.
-9. Write documentation, commit messages and PR text in English, in the STE-80 profile. Do not use em dashes.
+9. Write documentation, commit messages and stage reports in English, in the STE-80 profile. Do not use em dashes.
 10. A stage is complete only when the definition of done in `docs/standards.md` section 16 is true. It includes the quality gate of section 20.
 
 ## When you are blocked

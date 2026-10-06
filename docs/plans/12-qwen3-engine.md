@@ -204,7 +204,7 @@ A retry occurs only before the first flush, so the codec state of a retry is sti
 | AC-12-18 | `docs/benchmarks.md` has the 24 speed rows and the 36 WER rows, and each WER row has the WER of the `numbers` subset | Command 3 below the table |
 | AC-12-19 | `PACING.steps_per_char` comes from the measurement **(manual)** | The reviewer takes the largest `Audio per char (ms)` value of the six `qwen3` default voice rows in `Balanced`, divides it by 80, rounds up to the next 0.05 and compares the result with `PACING.steps_per_char` |
 | AC-12-20 | The default voices sound natural in each language **(manual)** | The project owner signs off in the listening table of `docs/benchmarks.md` |
-| AC-12-21 | The nightly job runs the `qwen3` tests that use the 0.6B model and the `Fast` WER of each default voice | The `workflow_dispatch` run on the stage branch is green. Link it in the PR |
+| AC-12-21 | The nightly job runs the `qwen3` tests that use the 0.6B model and the `Fast` WER of each default voice | The `workflow_dispatch` run on `main` is green. Link it in the stage report |
 | AC-12-22 | The About text of the engine has the Qwen attribution | Test `descriptor_has_qwen_attribution` |
 | AC-12-23 | Each quality selects the model size and dtype of the variant table | Tests `model_size_is_small_when_quality_is_fast` and `model_dtype_is_f32_when_quality_is_max_and_backend_is_metal` |
 | AC-12-24 | The CLI can speak with a `qwen3` voice **(manual)** | `antenna speak --voice qwen3/es-lucia notes.md` plays audio |
@@ -228,7 +228,7 @@ The commands of AC-12-02 and AC-12-18 are these.
 3. If AC-12-15 or AC-12-16 fails, keep the text embedding table (`[151936, 2048]`, 0.62 GB in bf16) on the CPU. Look up the rows on the CPU and copy only the result to the device.
 4. If `check_determinism` fails on Metal, find the operation that is not deterministic with the module parity tests on Metal. Do not move the conformance suite to the CPU.
 5. If AC-12-17 fails for a voice, examine the Whisper transcripts. If the voice reads the reference transcript of the voice prompt in the output, the prompt layout is wrong. Compare with the prompt fixture of stage 11. If the errors are in words of the target text, follow `docs/architecture.md` section 14, rule 3. If only one voice of a language fails, make its voice prompt again with a different seed in stage 11 `voices.toml`.
-6. If a segment of 300 characters makes the talker exceed 4096 positions, decrease `max_segment_chars` to 250. Write the reason in the PR.
+6. If a segment of 300 characters makes the talker exceed 4096 positions, decrease `max_segment_chars` to 250. Write the reason in the stage report.
 7. Use the model store API that stage 04 delivered in the conformance test. Use the `antenna-ml` names that stage 08 delivered. Do not add a second API.
 
 ### Facts to check
