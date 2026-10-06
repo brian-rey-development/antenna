@@ -367,7 +367,7 @@ Write the ADRs 0001 to 0007, 0011 and 0012 of `docs/architecture.md` section 16.
 | AC-01-13 | `Registry::voice` finds each voice by its `Display` text | Test `registry_finds_voice_when_given_display_text` |
 | AC-01-14 | Each trait has a doctest that compiles | `cargo test --doc -p antenna-core` runs 4 or more trait doctests |
 | AC-01-15 | The ADRs 0001 to 0007, 0011 and 0012 exist and each has 60 lines or less | `ls docs/adr` shows the nine files, and `wc -l docs/adr/*.md` shows 60 or less for each |
-| AC-01-16 | The workspace license is GPL-3.0-or-later and `cargo deny check` passes | `cargo deny check --config .config/deny.toml licenses` exits with code 0 |
+| AC-01-16 | The workspace license is GPL-3.0-or-later and `cargo deny check` passes | `cargo deny --config .config/deny.toml check licenses` exits with code 0 |
 | AC-01-17 | `TextFormat::from_extension` maps file extensions | Test `text_format_is_markdown_when_extension_is_md` |
 | AC-01-18 | The `fake` engine has four voices with names for each language | Test `fake_has_four_named_voices_for_each_language` |
 | AC-01-19 | The conformance suite runs each check for each quality | Self-test `harness_check_audio_fails_when_one_quality_is_silent` |

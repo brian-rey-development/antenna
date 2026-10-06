@@ -27,7 +27,7 @@ The command runs these checks in this sequence. It stops at the first failure.
 3. `cargo nextest run --workspace --all-features`
 4. `cargo test --workspace --all-features --doc`
 5. `cargo doc --workspace --all-features --no-deps` with `RUSTDOCFLAGS="-D warnings"`
-6. `cargo deny check --config .config/deny.toml`
+6. `cargo deny --config .config/deny.toml check`
 7. `cargo machete`
 8. `cargo xtask lint-repo` (the repository checks in section 13)
 
