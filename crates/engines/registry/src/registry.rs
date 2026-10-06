@@ -1,10 +1,11 @@
+use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use antenna_core::{EngineFactory, Language, VoiceDescriptor, VoiceId, check_descriptor};
 
-use crate::RegistryError;
-use crate::defaults::{DEFAULT_VOICES, Defaults, voices_of};
+use crate::defaults::{Defaults, voices_of};
+use crate::{RegistryError, engines};
 
 /// The engine factories of the build, in registration sequence, and the default voices.
 pub struct Registry {
@@ -17,14 +18,11 @@ impl Registry {
     ///
     /// # Errors
     ///
-    /// Returns [`RegistryError::Descriptor`] if a descriptor has a defect, and
+    /// Returns [`RegistryError::Descriptor`] if a descriptor has a defect,
+    /// [`RegistryError::DuplicateEngine`] if two engines have the same id, and
     /// [`RegistryError::NoVoice`] if a language has no voice.
     pub fn new() -> Result<Self, RegistryError> {
-        let factories: Vec<Arc<dyn EngineFactory>> = vec![
-            #[cfg(feature = "engine-fake")]
-            Arc::new(antenna_engine_fake::Factory::default()),
-        ];
-        Self::from_parts(factories, DEFAULT_VOICES)
+        Self::from_parts(engines::factories(), engines::DEFAULT_VOICES)
     }
 
     /// Makes a registry from factories in registration sequence and default voice ids. If no
@@ -34,8 +32,12 @@ impl Registry {
         factories: Vec<Arc<dyn EngineFactory>>,
         default_ids: &[VoiceId],
     ) -> Result<Self, RegistryError> {
-        for factory in &factories {
-            check_descriptor(factory.descriptor()).map_err(RegistryError::Descriptor)?;
+        let mut ids = BTreeSet::new();
+        for descriptor in factories.iter().map(|factory| factory.descriptor()) {
+            check_descriptor(descriptor).map_err(RegistryError::Descriptor)?;
+            if !ids.insert(descriptor.id) {
+                return Err(RegistryError::DuplicateEngine(descriptor.id));
+            }
         }
         let defaults = Defaults::new(&factories, default_ids)?;
         Ok(Self {
@@ -98,10 +100,93 @@ impl Debug for Registry {
 
 #[cfg(test)]
 mod tests {
-    use antenna_core::{CoreError, Defect};
+    use std::num::NonZeroUsize;
+
+    use antenna_core::{
+        CoreError, Defect, Engine, EngineDescriptor, EngineError, EngineId, Localized, ModelFiles,
+        ModelLicense, Quality, SampleRate, Variant, Variants,
+    };
 
     use super::*;
-    use crate::test_factory::{EMPTY, FULL, OTHER, SECOND, TEST, registry};
+
+    const TEST: EngineId = EngineId::new("test");
+    const OTHER: EngineId = EngineId::new("other");
+    const VARIANT: Variant = Variant {
+        parameters: "0",
+        artifacts: &[],
+    };
+    const EN_A: VoiceDescriptor = voice(TEST, "en-a", Language::En);
+    const EN_B: VoiceDescriptor = voice(TEST, "en-b", Language::En);
+    const ES_A: VoiceDescriptor = voice(TEST, "es-a", Language::Es);
+    const PT_A: VoiceDescriptor = voice(TEST, "pt-a", Language::Pt);
+    const FR_A: VoiceDescriptor = voice(TEST, "fr-a", Language::Fr);
+    const IT_A: VoiceDescriptor = voice(TEST, "it-a", Language::It);
+    const DE_A: VoiceDescriptor = voice(TEST, "de-a", Language::De);
+    const ES_Z: VoiceDescriptor = voice(OTHER, "es-z", Language::Es);
+    static FULL: EngineDescriptor = descriptor(TEST, &[EN_A, EN_B, ES_A, PT_A, FR_A, IT_A, DE_A]);
+    static NO_SPANISH: EngineDescriptor = descriptor(TEST, &[EN_A, PT_A, FR_A, IT_A, DE_A]);
+    static SECOND: EngineDescriptor = descriptor(OTHER, &[ES_Z]);
+    static EMPTY: EngineDescriptor = descriptor(OTHER, &[]);
+
+    struct TestFactory(&'static EngineDescriptor);
+
+    impl EngineFactory for TestFactory {
+        fn descriptor(&self) -> &'static EngineDescriptor {
+            self.0
+        }
+
+        fn load(
+            &self,
+            _: &VoiceDescriptor,
+            _: Quality,
+            _: &ModelFiles,
+        ) -> Result<Box<dyn Engine>, EngineError> {
+            Err(EngineError::Load("a test factory does not load".into()))
+        }
+    }
+
+    const fn voice(engine: EngineId, key: &'static str, language: Language) -> VoiceDescriptor {
+        VoiceDescriptor {
+            id: VoiceId::new(engine, key),
+            language,
+            name: key,
+            description: Localized { en: key, es: key },
+            artifacts: &[],
+        }
+    }
+
+    const fn descriptor(id: EngineId, voices: &'static [VoiceDescriptor]) -> EngineDescriptor {
+        EngineDescriptor {
+            id,
+            name: id.as_str(),
+            version: "1",
+            summary: Localized { en: "", es: "" },
+            license: ModelLicense {
+                name: "MIT",
+                url: "https://mit-license.org",
+                attribution: "",
+            },
+            sample_rate: SampleRate::HZ_24000,
+            max_segment_chars: NonZeroUsize::MIN,
+            variants: Variants {
+                fast: VARIANT,
+                balanced: VARIANT,
+                max: VARIANT,
+            },
+            voices,
+        }
+    }
+
+    fn registry(
+        descriptors: &[&'static EngineDescriptor],
+        defaults: &[VoiceId],
+    ) -> Result<Registry, RegistryError> {
+        let factories = descriptors
+            .iter()
+            .map(|descriptor| Arc::new(TestFactory(descriptor)) as Arc<dyn EngineFactory>)
+            .collect();
+        Registry::from_parts(factories, defaults)
+    }
 
     #[test]
     fn registry_finds_voice_when_given_display_text() {
@@ -135,6 +220,13 @@ mod tests {
     }
 
     #[test]
+    fn registry_fails_when_engine_id_duplicate() {
+        let result = registry(&[&FULL, &SECOND, &NO_SPANISH], &[]);
+
+        assert!(matches!(result, Err(RegistryError::DuplicateEngine(TEST))));
+    }
+
+    #[test]
     fn registry_finds_engine_when_given_id_text() {
         let registry = registry(&[&FULL, &SECOND], &[]).unwrap();
 
@@ -158,14 +250,14 @@ mod tests {
 
         let spanish: Vec<_> = registry
             .voices(Language::Es)
-            .map(|voice| voice.id.key())
+            .map(|voice| voice.id)
             .collect();
         let engines: Vec<_> = registry
             .factories()
             .map(|factory| factory.descriptor().id)
             .collect();
 
-        assert_eq!(spanish, ["es-a", "es-z"]);
+        assert_eq!(spanish, [ES_A.id, ES_Z.id]);
         assert_eq!(engines, [TEST, OTHER]);
     }
 
@@ -175,9 +267,31 @@ mod tests {
 
         let text = format!("{registry:?}");
 
-        assert_eq!(
-            text,
-            r#"Registry { engines: [EngineId("test"), EngineId("other")], .. }"#
-        );
+        let expected = r#"Registry { engines: [EngineId("test"), EngineId("other")], .. }"#;
+        assert_eq!(text, expected);
+    }
+
+    #[test]
+    fn registry_fails_when_language_has_no_voice() {
+        let result = registry(&[&NO_SPANISH], &[]);
+
+        assert!(matches!(result, Err(RegistryError::NoVoice(Language::Es))));
+    }
+
+    #[test]
+    fn registry_uses_first_voice_when_default_entry_has_no_factory() {
+        let absent = VoiceId::new(EngineId::new("absent"), "es-a");
+
+        let registry = registry(&[&FULL, &SECOND], &[absent]).unwrap();
+
+        assert_eq!(registry.default_voice(Language::Es).id, ES_A.id);
+    }
+
+    #[test]
+    fn registry_uses_default_entry_when_voice_registered() {
+        let registry = registry(&[&FULL, &SECOND], &[ES_Z.id]).unwrap();
+
+        assert_eq!(registry.default_voice(Language::Es).id, ES_Z.id);
+        assert_eq!(registry.default_voice(Language::En).id, EN_A.id);
     }
 }

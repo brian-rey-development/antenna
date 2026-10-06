@@ -326,6 +326,7 @@ pub enum RegistryError {
     NoVoice(Language),
     UnknownVoice(String),
     UnknownEngine(String),
+    DuplicateEngine(EngineId),
     Descriptor(#[source] CoreError),
 }
 ```
@@ -333,7 +334,7 @@ pub enum RegistryError {
 1. The feature `engine-fake` enables the `fake` engine. The registry has no default features. Each app declares the engine features that it builds and forwards them to the registry. Stage 12 adds `engine-qwen3` and stage 14 adds `engine-magpie`, each with its `[workspace.dependencies]` entry.
 2. The constant `DEFAULT_VOICES` contains the default voice id for each language. In this stage it is empty. Each entry has the `#[cfg(feature = "engine-<name>")]` attribute of its engine, so a build without that engine has no entry for it.
 3. If `DEFAULT_VOICES` has no entry for a language, the default voice is the first voice for that language in registration sequence. The same rule applies when the entry names a voice that no registered factory has.
-4. `Registry::new` collects the factories of the enabled features and `DEFAULT_VOICES`, then calls `from_parts`. All rules of this list are in `from_parts`, and the unit tests of the registry call it with test factories and test defaults. `from_parts` calls `check_descriptor` for each factory. It returns `RegistryError::Descriptor` for the first error.
+4. `Registry::new` collects the factories of the enabled features and `DEFAULT_VOICES`, then calls `from_parts`. All rules of this list are in `from_parts`, and the unit tests of the registry call it with test factories and test defaults. `from_parts` calls `check_descriptor` for each factory. It returns `RegistryError::Descriptor` for the first error. It returns `RegistryError::DuplicateEngine` if two factories have the same engine id.
 5. `from_parts` returns `RegistryError::NoVoice(language)` if a language has no voice. Thus `default_voice` cannot fail.
 6. `Registry::voice` takes the `Display` text of a voice id. It returns `RegistryError::UnknownVoice` with that text if no voice has it.
 7. `Registry::engine` takes the text of an engine id. It returns `RegistryError::UnknownEngine` with that text if no factory has it. The CLI and the desktop app use it to find an engine from text.

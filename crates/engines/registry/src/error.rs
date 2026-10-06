@@ -1,4 +1,4 @@
-use antenna_core::{CoreError, Language};
+use antenna_core::{CoreError, EngineId, Language};
 use thiserror::Error;
 
 /// An error of the registry.
@@ -13,6 +13,9 @@ pub enum RegistryError {
     /// No registered engine has this id.
     #[error("no engine has the id {0}")]
     UnknownEngine(String),
+    /// Two registered engines have this id.
+    #[error("two engines have the id {0}")]
+    DuplicateEngine(EngineId),
     /// The descriptor of a registered engine has a defect.
     #[error("an engine descriptor is not valid")]
     Descriptor(#[source] CoreError),

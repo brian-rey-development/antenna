@@ -5,10 +5,9 @@
 //! features, so each app selects its engines.
 
 mod defaults;
+mod engines;
 mod error;
 mod registry;
-#[cfg(test)]
-mod test_factory;
 
 pub use error::RegistryError;
 pub use registry::Registry;

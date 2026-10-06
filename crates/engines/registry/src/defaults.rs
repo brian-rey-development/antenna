@@ -4,10 +4,6 @@ use antenna_core::{EngineFactory, Language, VoiceDescriptor, VoiceId};
 
 use crate::RegistryError;
 
-/// The default voice id of each language. Each entry has the `engine-<name>` feature of its
-/// engine, so a build without that engine has no entry for it.
-pub(crate) const DEFAULT_VOICES: &[VoiceId] = &[];
-
 /// The default voice of each language. The struct has a field for each language, so
 /// `Registry::default_voice` cannot fail.
 pub(crate) struct Defaults {
@@ -70,58 +66,4 @@ fn select_voice(
         .find_map(|id| voices().find(|voice| voice.id == *id))
         .or_else(|| voices().next())
         .ok_or(RegistryError::NoVoice(language))
-}
-
-#[cfg(test)]
-mod tests {
-    use antenna_core::EngineId;
-
-    use crate::test_factory::{FULL, NO_SPANISH, SECOND, registry};
-
-    use super::*;
-
-    #[cfg(feature = "engine-fake")]
-    #[test]
-    fn registry_has_default_voice_when_fake_enabled() {
-        let registry = crate::Registry::new().unwrap();
-
-        for language in Language::ALL {
-            let voice = registry.default_voice(language);
-
-            assert_eq!(voice.language, language);
-            assert_eq!(voice.id.to_string(), format!("fake/{language}-alba"));
-        }
-    }
-
-    #[test]
-    fn registry_fails_when_language_has_no_voice() {
-        let result = registry(&[&NO_SPANISH], &[]);
-
-        assert!(matches!(result, Err(RegistryError::NoVoice(Language::Es))));
-    }
-
-    #[test]
-    fn registry_uses_first_voice_when_default_entry_has_no_factory() {
-        let absent = VoiceId::new(EngineId::new("absent"), "es-a");
-
-        let registry = registry(&[&FULL, &SECOND], &[absent]).unwrap();
-
-        assert_eq!(
-            registry.default_voice(Language::Es).id.to_string(),
-            "test/es-a"
-        );
-    }
-
-    #[test]
-    fn registry_uses_default_entry_when_voice_registered() {
-        let spanish = SECOND.voices[0].id;
-
-        let registry = registry(&[&FULL, &SECOND], &[spanish]).unwrap();
-
-        assert_eq!(registry.default_voice(Language::Es).id, spanish);
-        assert_eq!(
-            registry.default_voice(Language::En).id.to_string(),
-            "test/en-a"
-        );
-    }
 }
