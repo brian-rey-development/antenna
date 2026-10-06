@@ -1,0 +1,20 @@
+[package]
+name = "antenna-engine-registry"
+version = "0.1.0"
+description = "Engine list and default voices of Antenna"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[features]
+engine-fake = ["dep:antenna-engine-fake"]
+
+[dependencies]
+antenna-core.workspace = true
+antenna-engine-fake = { workspace = true, optional = true }
+thiserror = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

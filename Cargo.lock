@@ -20,6 +20,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "antenna-engine-registry"
+version = "0.1.0"
+dependencies = [
+ "antenna-core",
+ "antenna-engine-fake",
+ "thiserror",
+]
+
+[[package]]
 name = "antenna-engine-testkit"
 version = "0.1.0"
 dependencies = [
