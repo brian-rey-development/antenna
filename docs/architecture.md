@@ -584,7 +584,7 @@ Use only these crates. If a stage needs another crate, the agent writes a Blocke
 | Loudness | `ebur128` |
 | MP3 encoding | `mp3lame-encoder` (LAME, LGPL) |
 | WAV encoding and segment files | `hound` |
-| Opus encoding | `audiopus` (libopus, static build) |
+| Opus encoding | `opus` (libopus 1.6 through `opusic-sys`, static build with CMake 3.16 or later) |
 | Ogg container | `ogg` |
 | Markdown | `pulldown-cmark` |
 | Sentence segmentation | `srx`, with the LanguageTool `segment.srx` rules |

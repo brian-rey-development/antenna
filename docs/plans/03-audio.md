@@ -29,8 +29,9 @@ A track has two kinds of segments, `Stored` and `Pending`. A live segment is a s
 The stage can create or change these files only.
 
 - `crates/audio/`
-- `Cargo.toml` (root), to add the member, the workspace dependencies `cpal`, `rtrb`, `rubato`, `ebur128`, `mp3lame-encoder`, `hound`, `audiopus` and `ogg`, and the dev-dependencies `symphonia`, `assert_no_alloc` and `tempfile`
-- `.github/workflows/ci.yml`, to install `libasound2-dev` on the Linux job
+- `Cargo.toml` (root), to add the member and the workspace dependencies `cpal`, `rtrb`, `rubato`, `ebur128`, `mp3lame-encoder`, `hound`, `opus`, `ogg`, `tracing` and `divan`
+- `Cargo.toml` (root), to add the dev-dependencies `symphonia`, `assert_no_alloc` and `tempfile`
+- `.github/workflows/ci.yml`, to install `libasound2-dev` on the Linux job, and CMake on a job that does not have CMake 3.16 or later
 
 ## Deliverables
 
@@ -199,7 +200,7 @@ pub enum AudioError {
     Mp3Build(#[source] mp3lame_encoder::BuildError),
     Mp3Encode(#[source] mp3lame_encoder::EncodeError),
     Mp3Tag(#[source] mp3lame_encoder::Id3TagError),
-    Opus(#[source] audiopus::Error),
+    Opus(#[source] opus::Error),
     Cancelled,
 }
 ```
@@ -427,12 +428,12 @@ The Ogg granule position counts samples at `OGG_GRANULE_RATE_HZ`, with the pre-s
 | AC-03-39 | The Ogg Opus encoder runs at 24 kHz for `Hz24000` and at 48 kHz for the other rates | Test `ogg_export_uses_encoder_rate_when_<rate>` reads the input sample rate field of `OpusHead` |
 | AC-03-40 | The MP3 tag has the artist "Antenna" and the comment "<language code> <voice id>" | Test `mp3_export_has_artist_and_comment_tags` |
 | AC-03-41 | The text forms of `ExportRate` and `Loudness` round trip | Tests `export_rate_round_trips_when_text_parsed` and `loudness_round_trips_when_text_parsed` |
-| AC-03-42 | An Ogg export at `Hz44100` gives the Opus encoder 48 kHz samples, so the decoded duration matches the source | Test `ogg_export_duration_matches_when_hz44100` decodes the file with `symphonia` and compares the duration with a difference of 50 ms or less |
+| AC-03-42 | An Ogg export at `Hz44100` gives the Opus encoder 48 kHz samples, so the duration of the file matches the source | Test `ogg_export_duration_matches_when_hz44100` reads the file with the Ogg reader of `symphonia`. It calculates the duration from the granule position of the last page minus the pre-skip, at 48 kHz, and compares it with the source duration with a difference of 50 ms or less. `symphonia` has no Opus decoder, so the test does not decode the audio |
 
 ## Decision rules
 
 1. `mp3lame-encoder` has the license LGPL-3.0, and stage 01 put it in the allowlist of `.config/deny.toml`. If `cargo deny` rejects a different license, stop and write a "Blocked" section.
-2. If the static build of `audiopus` fails on one of the three CI targets, stop and write a "Blocked" section with the build error. A human decides the replacement crate and changes the table in `docs/architecture.md` section 10.
+2. The `opus` crate builds libopus from source through `opusic-sys`, and the build needs CMake 3.16 or later. If a CI target does not have it, install CMake in that job of `.github/workflows/ci.yml`. If the build of `opus` fails for a different cause, stop and write a "Blocked" section with the build error. A human decides the replacement crate and changes the table in `docs/architecture.md` section 10.
 3. If `cpal::Stream` is not `Send` on a CI target, create the stream on the feed thread and keep it there. The feed thread already owns the stream, so no other change is necessary.
 4. If the device does not support `f32` samples, build the stream in the native sample format and convert with `cpal::Sample::from_sample`. Do not allocate in the conversion.
 5. If `assert_no_alloc` reports an allocation in `fill`, remove the allocation. Do not move the check out of the test.
