@@ -169,7 +169,7 @@ pub enum CoreError {
     InvalidDescriptor { engine: EngineId, defect: Defect },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Display)]           // the text form is the defect, with its data
 pub enum Defect {
     NoVoices,
     DuplicateVoice(VoiceId),

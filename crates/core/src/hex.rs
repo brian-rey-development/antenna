@@ -1,6 +1,5 @@
 //! Lowercase hex text, the text form of revisions and SHA-256 values.
 
-/// The number of bits that one hex digit holds.
 pub(crate) const BITS_PER_DIGIT: u32 = 4;
 
 /// Returns the value of a lowercase hex digit, or `None` for another byte.
