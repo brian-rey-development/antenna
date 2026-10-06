@@ -1,0 +1,18 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+description = "Developer tasks of Antenna: the check sequence and the repository checks"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+cargo_metadata.workspace = true
+strum = { workspace = true, features = ["derive", "std"] }
+thiserror = { workspace = true, features = ["std"] }
+toml = { workspace = true, features = ["parse", "serde", "std"] }
+
+[lints]
+workspace = true

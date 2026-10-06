@@ -1,0 +1,16 @@
+[package]
+name = "antenna-core"
+version = "0.1.0"
+description = "Domain types and extension traits of Antenna"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+strum = { workspace = true, features = ["derive", "std"] }
+thiserror = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

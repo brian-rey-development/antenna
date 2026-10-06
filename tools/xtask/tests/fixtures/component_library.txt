@@ -1,0 +1,3 @@
+use gpui_component::button::Button;
+const NAME: &str = "gpui_component";
+// The gpui_component crate is for crates/ui only.

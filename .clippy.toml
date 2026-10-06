@@ -1,0 +1,26 @@
+too-many-lines-threshold = 25
+cognitive-complexity-threshold = 10
+too-many-arguments-threshold = 5
+type-complexity-threshold = 200
+absolute-paths-max-segments = 2
+max-fn-params-bools = 0
+max-include-file-size = 65536
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-indexing-slicing-in-tests = true
+allow-print-in-tests = true
+disallowed-names = ["foo", "bar", "baz", "tmp", "temp", "data", "info", "item", "obj", "val", "thing", "stuff"]
+disallowed-methods = [
+  { path = "std::thread::sleep", reason = "Use flume recv_timeout, or park_timeout for a wait that reads a cancel flag" },
+  { path = "std::thread::spawn", reason = "Use std::thread::Builder with a name antenna-<role>" },
+  { path = "std::process::exit", reason = "Return an error from main" },
+  { path = "std::sync::mpsc::channel", reason = "Use flume" },
+  { path = "std::sync::mpsc::sync_channel", reason = "Use flume" },
+]
+disallowed-types = [
+  { path = "std::sync::Mutex", reason = "Give the state to one thread and send commands through flume" },
+  { path = "std::rc::Rc", reason = "Use ownership, a borrow or Arc" },
+  { path = "std::cell::RefCell", reason = "Use ownership or a GPUI entity" },
+  { path = "std::sync::RwLock", reason = "The library index is the only lock. index.rs has the inner #![expect]" },
+]

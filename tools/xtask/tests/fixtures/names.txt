@@ -1,0 +1,8 @@
+mod utils;
+pub struct PlayerShared;
+enum ModelManager { Idle }
+pub(crate) type BaseUrl = String;
+trait Helper {}
+struct Database;
+const MODULE: &str = "mod utils";
+// A comment can say struct Shared.

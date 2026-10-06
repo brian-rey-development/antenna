@@ -1,0 +1,2 @@
+crates/core
+crates/sound normal crates/core

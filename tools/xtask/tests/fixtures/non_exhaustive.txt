@@ -1,0 +1,7 @@
+/// The state of a job.
+#[non_exhaustive]
+pub enum State {
+    Running,
+}
+
+const ATTRIBUTE: &str = "#[non_exhaustive]";

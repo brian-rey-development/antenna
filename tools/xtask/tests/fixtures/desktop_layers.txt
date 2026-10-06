@@ -1,0 +1,6 @@
+use crate::state::Action;
+use antenna_audio::Player;
+fn send() { Input::Play; }
+fn other() -> TextInput::Kind {}
+const LABEL: &str = "antenna_library";
+// The antenna_models crate is for AppState only.

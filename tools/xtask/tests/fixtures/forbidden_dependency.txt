@@ -1,0 +1,5 @@
+crates/core normal crates/text
+crates/text normal crates/core
+crates/text dev crates/engines/fake
+crates/engines/fake normal crates/core
+crates/engines/fake dev crates/engines/testkit

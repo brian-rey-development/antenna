@@ -1,0 +1,10 @@
+fn a() {}
+// TODO: finish this.
+// FIXME later.
+/// XXX in a doc comment.
+let x = 1; // HACK around the borrow checker.
+// Note: the buffer has two owners.
+// A comment with an emoji 🎙 here.
+/* A block comment with TODO. */
+// Notes and a notebook are permitted words.
+const MARKER: &str = "TODO";

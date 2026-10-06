@@ -1,0 +1,10 @@
+let color = rgb(0x2d4be0);
+let accent = "#2D4BE0";
+div().px_4().gap_x_2();
+div().rounded_full();
+div().text_sm();
+div().w(px(320.));
+let mask = 0x2D4BE0FF;
+div().text_color(theme.signal);
+div().rounded_corner();
+let tone = theme.text_small;

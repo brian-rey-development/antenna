@@ -1,0 +1,9 @@
+[package]
+name = "antenna-text"
+version = "0.1.0"
+
+[lints]
+workspace = true
+
+[lints.clippy]
+unwrap_used = "allow"

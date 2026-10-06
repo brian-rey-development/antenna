@@ -1,0 +1,3 @@
+A line with a hyphen - here.
+A line with an en dash – here.
+A line with no dash.

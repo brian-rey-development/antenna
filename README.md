@@ -71,6 +71,23 @@ docs/      architecture, standards, design, plans and stage reports
 3. Each stage has acceptance criteria that a test, a command or a measurement proves. A new agent session reviews each stage against the standards before the stage is complete.
 4. All English text uses STE-80, a profile of ASD-STE100 Simplified Technical English.
 
+## Build
+
+Install [rustup](https://rustup.rs). The file `rust-toolchain.toml` selects the Rust version.
+
+`cargo xtask check` needs `cargo-nextest`, `cargo-deny` and `cargo-machete`, at the versions that CI uses.
+
+```sh
+cargo install --locked cargo-nextest@0.9.146 cargo-deny@0.20.2 cargo-machete@0.9.2
+```
+
+Build the workspace, then run all checks.
+
+```sh
+cargo build --workspace
+cargo xtask check
+```
+
 ## License
 
 Antenna is free software under the [GNU General Public License v3.0 or later](LICENSE). The model weights have their own licenses, which the Models screen shows.

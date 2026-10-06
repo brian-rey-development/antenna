@@ -1,0 +1,10 @@
+// The limit comes from the screen height.
+const LIMIT: usize = 300;
+// The step keeps the buffer aligned.
+const STEP: usize = 2;
+fn a() {}
+fn b() {}
+fn c() {}
+fn d() {}
+fn e() {}
+fn f() {}

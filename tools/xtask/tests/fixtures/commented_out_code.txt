@@ -1,0 +1,6 @@
+// This comment tells why.
+// let x = compute();
+// if ready {
+// }
+/// let doc = example();
+let y = 2; // trailing;

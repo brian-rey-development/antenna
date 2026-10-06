@@ -1,0 +1,7 @@
+#[expect(unsafe_code, reason = "the fixture reads a pointer")]
+fn read(bytes: &[u8]) -> u8 {
+    // The word unsafe in a comment does not count.
+    unsafe { *bytes.as_ptr() }
+}
+
+const KEYWORD: &str = "unsafe";
