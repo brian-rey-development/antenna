@@ -233,7 +233,7 @@ In a `const` context, `EngineId::new` and `VoiceId::new` panic when a value is n
 
 `antenna-engine-fake` depends only on `antenna-core`. Its dev-dependency is `antenna-engine-testkit`.
 
-1. `Factory` implements `Default`. `lib.rs` exports it as `antenna_engine_fake::Factory`, as `docs/standards.md` section 3.4 says. It has four voices for each language, 24 voices in total. The voice names are "Alba", "Bruno", "Clara" and "Dario" in each language. The voice key is the language code and the lowercase name, for example `fake/es-alba`.
+1. `Factory` implements `Default`. It has four voices for each language, 24 voices in total. The voice names are "Alba", "Bruno", "Clara" and "Dario" in each language. The voice key is the language code and the lowercase name, for example `fake/es-alba`. `lib.rs` exports the factory as `antenna_engine_fake::Factory`, as `docs/standards.md` section 3.4 says.
 2. Each voice has a `Localized` description in English and Spanish, for example "Test tone, low pitch" and "Tono de prueba, grave".
 3. The descriptor has three variants with no artifacts. The `parameters` text of each variant is "0". The voices have no artifacts.
 4. Sample rate `SampleRate::HZ_24000`. `max_segment_chars` is 400.
@@ -274,7 +274,7 @@ pub struct Violation {
     pub voice: Option<VoiceId>,
     pub quality: Option<Quality>,
     pub condition: Condition,
-    #[source] pub source: Option<Cause>,                // None when the engine gives wrong audio
+    #[source] pub source: Option<Cause>,                // None when no error broke the condition
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, strum::Display)]   // the text form states the condition

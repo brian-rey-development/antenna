@@ -12,7 +12,7 @@ pub struct Violation {
     pub quality: Option<Quality>,
     /// The condition that the engine did not satisfy.
     pub condition: Condition,
-    /// The error that broke the condition, or `None` if the engine gave wrong audio.
+    /// The error that broke the condition, or `None` when no error broke it.
     #[source]
     pub source: Option<Cause>,
 }
