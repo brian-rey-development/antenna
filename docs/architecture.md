@@ -768,3 +768,4 @@ These rules apply to all stages. A stage file can add more rules.
 10. `0010-segment-store.md` (stage 05)
 11. `0011-repository-layout.md` (stage 01)
 12. `0012-exhaustive-enums.md` (stage 01), no `#[non_exhaustive]` in the workspace, because no crate is published and each match stays exhaustive
+13. `0013-cargo-deny-arguments.md` (stage 01), the argument order of cargo-deny 0.20 and the pinned version

@@ -23,4 +23,4 @@ AI agents and humans do the 19 stages of the implementation, also at the same ti
 1. A reader who knows one crate can find each part of the other crates.
 2. A dependency that the graph does not permit fails CI. A new crate or a new edge needs a human decision and a change to the table.
 3. Each version of a third-party crate is in one place, the root `Cargo.toml`.
-4. A new tool configuration file goes in `.config/`, not in the repository root.
+4. Each new tool configuration file goes in `.config/`.
