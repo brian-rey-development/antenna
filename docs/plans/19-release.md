@@ -143,7 +143,7 @@ Each file has the "one platform" format of `cargo-packager-updater`.
 
 | File | Content |
 |---|---|
-| `README.md` | What Antenna does in 3 sentences, 2 screenshots of the Studio and the Library, the supported languages, the system requirements (macOS 14, Apple Silicon, 16 GB of memory, 8 GB of free disk space for all voices), the install procedure, the build procedure, and the license |
+| `README.md` | Update the existing file. Remove the development notice. Keep its sections and add what Antenna does in 3 sentences, 2 screenshots of the Studio and the Library, the supported languages, the system requirements (macOS 14, Apple Silicon, 16 GB of memory, 8 GB of free disk space for all voices), the install procedure, the build procedure, and the license |
 | `CONTRIBUTING.md` | The read order of `CLAUDE.md`, the `cargo xtask check` command, the commit rules of `docs/standards.md` section 15, the STE-80 rule, and the link to `docs/adding-an-engine.md` |
 | `docs/adding-an-engine.md` | The procedure of `docs/architecture.md` section 7.5 as a numbered walk-through, with the `fake` engine as the example, the engine crate layout, and the commands that prove each step |
 | `docs/release.md` | The procedure to make a stable release and a beta release, the secrets, the update feeds, and the checks after a release |
