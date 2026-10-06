@@ -1,0 +1,19 @@
+[package]
+name = "antenna-engine-fake"
+version = "0.1.0"
+description = "Deterministic tone engine of Antenna for tests"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+antenna-core.workspace = true
+thiserror = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+antenna-engine-testkit.workspace = true
+
+[lints]
+workspace = true
