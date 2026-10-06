@@ -1,0 +1,17 @@
+[package]
+name = "antenna-engine-testkit"
+version = "0.1.0"
+description = "Conformance suite and test outputs for Antenna engines"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+antenna-core.workspace = true
+flume.workspace = true
+thiserror = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true
