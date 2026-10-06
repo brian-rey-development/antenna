@@ -109,7 +109,15 @@ mod tests {
         let found = checks_of("crates/text/src/lib.rs", text);
 
         assert_eq!(found, [(Check::FileLength, None)]);
-        assert!(checks_of("crates/text/src/lib.rs", &"x\n".repeat(MAX_FILE_LINES)).is_empty());
+    }
+
+    #[test]
+    fn lint_repo_skips_file_length_when_file_at_limit() {
+        let text = "x\n".repeat(MAX_FILE_LINES);
+
+        let found = checks_of("crates/text/src/lib.rs", &text);
+
+        assert!(found.is_empty());
     }
 
     #[test]
@@ -128,7 +136,15 @@ mod tests {
         let found = checks_of("crates/audio/src/lib.rs", text);
 
         assert_eq!(found, [(Check::UnsafeCode, Some(4))]);
-        assert!(checks_of(UNSAFE_FILE, text).is_empty());
+    }
+
+    #[test]
+    fn lint_repo_skips_unsafe_code_when_file_is_weights_module() {
+        let text = include_str!("../../tests/fixtures/unsafe_code.txt");
+
+        let found = checks_of(UNSAFE_FILE, text);
+
+        assert!(found.is_empty());
     }
 
     #[test]
@@ -138,7 +154,15 @@ mod tests {
         let found = checks_of("apps/desktop/src/main.rs", text);
 
         assert_eq!(found, [(Check::ComponentLibrary, Some(1))]);
-        assert!(checks_of("crates/ui/src/components/button.rs", text).is_empty());
+    }
+
+    #[test]
+    fn lint_repo_skips_component_library_when_file_in_ui_crate() {
+        let text = include_str!("../../tests/fixtures/component_library.txt");
+
+        let found = checks_of("crates/ui/src/components/button.rs", text);
+
+        assert!(found.is_empty());
     }
 
     #[test]
@@ -149,6 +173,14 @@ mod tests {
 
         let expected = [2, 3].map(|line| (Check::DesktopLayers, Some(line)));
         assert_eq!(found, expected);
-        assert!(checks_of("apps/desktop/src/state/mod.rs", text).is_empty());
+    }
+
+    #[test]
+    fn lint_repo_skips_desktop_layers_when_file_outside_layers() {
+        let text = include_str!("../../tests/fixtures/desktop_layers.txt");
+
+        let found = checks_of("apps/desktop/src/state/mod.rs", text);
+
+        assert!(found.is_empty());
     }
 }

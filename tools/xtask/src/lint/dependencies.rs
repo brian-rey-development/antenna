@@ -16,14 +16,14 @@ pub(super) enum Kind {
     Dev,
 }
 
-/// A workspace member and the directories of its path dependencies.
+/// A workspace member, with its manifest path and the directories of its path dependencies.
 #[derive(Debug)]
 pub(super) struct Member {
-    directory: PathBuf,
+    manifest: PathBuf,
     dependencies: Vec<(Kind, PathBuf)>,
 }
 
-/// Reads the members and their path dependencies from the workspace metadata. Each directory is
+/// Reads the members and their path dependencies from the workspace metadata. Each path is
 /// relative to the workspace root.
 pub(super) fn members(metadata: &Metadata) -> Vec<Member> {
     let root = metadata.workspace_root.as_std_path();
@@ -32,10 +32,7 @@ pub(super) fn members(metadata: &Metadata) -> Vec<Member> {
         .workspace_packages()
         .into_iter()
         .map(|package| Member {
-            directory: package
-                .manifest_path
-                .parent()
-                .map_or_else(PathBuf::new, |directory| relative(directory.as_std_path())),
+            manifest: relative(package.manifest_path.as_std_path()),
             dependencies: package
                 .dependencies
                 .iter()
@@ -61,11 +58,10 @@ pub(super) fn check(members: &[Member]) -> Vec<Violation> {
 }
 
 fn check_member(member: &Member) -> Vec<Violation> {
-    let manifest = member.directory.join(MANIFEST_NAME);
-    let violation = |detail| Violation::new(Check::DependencyGraph, &manifest, detail);
+    let violation = |detail| Violation::new(Check::DependencyGraph, &member.manifest, detail);
     let Some(row) = GRAPH
         .iter()
-        .find(|row| Path::new(row.path) == member.directory)
+        .find(|row| Path::new(row.path).join(MANIFEST_NAME) == member.manifest)
     else {
         return vec![violation(
             "the workspace member has no row in the graph".to_owned(),
@@ -102,10 +98,10 @@ mod tests {
         let mut members: Vec<Member> = Vec::new();
         for line in fixture.lines() {
             let words: Vec<_> = line.split_whitespace().collect();
-            let directory = PathBuf::from(words[0]);
-            if !members.iter().any(|member| member.directory == directory) {
+            let manifest = Path::new(words[0]).join(MANIFEST_NAME);
+            if !members.iter().any(|member| member.manifest == manifest) {
                 members.push(Member {
-                    directory: directory.clone(),
+                    manifest: manifest.clone(),
                     dependencies: Vec::new(),
                 });
             }
@@ -117,7 +113,7 @@ mod tests {
                 };
                 let member = members
                     .iter_mut()
-                    .find(|member| member.directory == directory)
+                    .find(|member| member.manifest == manifest)
                     .unwrap();
                 member.dependencies.push((kind, PathBuf::from(dependency)));
             }

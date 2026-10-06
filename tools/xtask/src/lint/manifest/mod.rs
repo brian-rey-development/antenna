@@ -1,11 +1,14 @@
 //! The checks of the `Cargo.toml` files of the members: crate names, lint override and versions.
 
+mod lines;
+
 use std::path::{Component, Path};
 
 use toml::{Table, Value};
 
 use super::{Check, Violation};
 use crate::error::XtaskError;
+use lines::{Scope, header_line, line_of};
 
 const GROUPS: [&str; 3] = ["storage", "inference", "engines"];
 const ENGINE_GROUP: &str = "engines";
@@ -16,6 +19,9 @@ const FIXED_NAMES: [(&str, &str, &str); 4] = [
     ("tools", "xtask", "xtask"),
 ];
 const DEPENDENCY_TABLES: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
+const PACKAGE_TABLE: &str = "package";
+const NAME_KEY: &str = "name";
+const LINTS_TABLE: &str = "lints";
 
 /// Runs the checks of this module on one manifest. A manifest with no `[package]` is the
 /// workspace manifest, and the checks skip it.
@@ -28,31 +34,24 @@ pub(super) fn check(path: &Path, text: &str) -> Result<Vec<Violation>, XtaskErro
         path: path.to_owned(),
         source,
     })?;
-    let Some(package) = manifest.get("package").and_then(Value::as_table) else {
+    let Some(package) = manifest.get(PACKAGE_TABLE).and_then(Value::as_table) else {
         return Ok(Vec::new());
     };
-    let mut violations: Vec<_> = crate_name(path, package).into_iter().collect();
-    violations.extend(lint_override(path, &manifest));
+    let mut violations: Vec<_> = crate_name(path, text, package).into_iter().collect();
+    violations.extend(lint_override(path, text, &manifest));
     violations.extend(versions(path, text, &manifest));
     Ok(violations)
 }
 
-fn crate_name(path: &Path, package: &Table) -> Option<Violation> {
-    let name = package.get("name").and_then(Value::as_str);
-    let expected = path.parent().and_then(expected_name);
-    match (expected, name) {
-        (Some(expected), Some(name)) if expected == name => None,
-        (Some(expected), _) => Some(Violation::new(
-            Check::CrateNames,
-            path,
-            format!("the package name must be {expected}"),
-        )),
-        (None, _) => Some(Violation::new(
-            Check::CrateNames,
-            path,
-            "docs/architecture.md section 3 has no crate in this directory",
-        )),
-    }
+fn crate_name(path: &Path, text: &str, package: &Table) -> Option<Violation> {
+    let name = package.get(NAME_KEY).and_then(Value::as_str);
+    let detail = match path.parent().and_then(expected_name) {
+        Some(expected) if name == Some(expected.as_str()) => return None,
+        Some(expected) => format!("the package name must be {expected}"),
+        None => "docs/architecture.md section 3 has no crate in this directory".to_owned(),
+    };
+    let line = line_of(text, Scope::Package, PACKAGE_TABLE, NAME_KEY);
+    Some(violation_at(Check::CrateNames, path, line, detail))
 }
 
 /// Returns the package name that `docs/standards.md` section 3.1 gives to a crate directory.
@@ -79,24 +78,30 @@ fn expected_name(directory: &Path) -> Option<String> {
     }
 }
 
-fn lint_override(path: &Path, manifest: &Table) -> Option<Violation> {
-    let lints = manifest.get("lints").and_then(Value::as_table);
+fn lint_override(path: &Path, text: &str, manifest: &Table) -> Option<Violation> {
+    let lints = manifest.get(LINTS_TABLE).and_then(Value::as_table);
     let is_inherited = lints.is_some_and(|lints| {
         lints.len() == 1 && lints.get("workspace").and_then(Value::as_bool) == Some(true)
     });
     (!is_inherited).then(|| {
+        let line = header_line(text, LINTS_TABLE);
         let detail = "the [lints] table must contain only workspace = true";
-        Violation::new(Check::LintOverride, path, detail)
+        violation_at(Check::LintOverride, path, line, detail)
     })
 }
 
-/// The place of a dependency table in a manifest.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Scope {
-    /// A table of the package, for example `[dependencies]`.
-    Package,
-    /// A table of a target, for example `[target.'cfg(windows)'.dependencies]`.
-    Target,
+/// Makes a violation at a line index, or a violation of the complete file when the manifest has
+/// no line for it.
+fn violation_at(
+    check: Check,
+    path: &Path,
+    index: Option<usize>,
+    detail: impl Into<String>,
+) -> Violation {
+    match index {
+        Some(index) => Violation::with_line(check, path, index, detail),
+        None => Violation::new(check, path, detail),
+    }
 }
 
 fn versions(path: &Path, text: &str, manifest: &Table) -> Vec<Violation> {
@@ -104,10 +109,12 @@ fn versions(path: &Path, text: &str, manifest: &Table) -> Vec<Violation> {
         .filter(|(_, _, _, declaration)| !is_inherited(declaration))
         .map(|(scope, table, name, _)| {
             let detail = format!("the dependency {name} must use workspace = true");
-            match line_of(text, scope, table, name) {
-                Some(index) => Violation::with_line(Check::Versions, path, index, detail),
-                None => Violation::new(Check::Versions, path, detail),
-            }
+            violation_at(
+                Check::Versions,
+                path,
+                line_of(text, scope, table, name),
+                detail,
+            )
         })
         .collect();
     violations.sort_by_key(|violation| violation.line);
@@ -147,44 +154,11 @@ fn is_inherited(declaration: &Value) -> bool {
     })
 }
 
-/// Returns the index of the line that declares the dependency `name` in a dependency table, as a
-/// key of the table or as the header `[<table>.<name>]`.
-fn line_of(text: &str, scope: Scope, table: &str, name: &str) -> Option<usize> {
-    let own_header = format!("{table}.{name}");
-    let mut header = "";
-    text.lines().position(|line| {
-        let line = line.trim();
-        if let Some(inner) = line
-            .strip_prefix('[')
-            .and_then(|rest| rest.strip_suffix(']'))
-        {
-            header = inner.trim();
-            return is_table(header, scope, &own_header);
-        }
-        is_table(header, scope, table) && declares(line, name)
-    })
-}
-
-fn is_table(header: &str, scope: Scope, table: &str) -> bool {
-    match scope {
-        Scope::Package => header == table,
-        Scope::Target => {
-            header.starts_with("target.")
-                && header
-                    .strip_suffix(table)
-                    .is_some_and(|rest| rest.ends_with('.'))
-        }
-    }
-}
-
-fn declares(line: &str, name: &str) -> bool {
-    line.strip_prefix(name)
-        .is_some_and(|rest| rest.trim_start().starts_with(['=', '.']))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const CRATE_NAMES: &str = include_str!("../../../tests/fixtures/crate_names.toml");
 
     fn found(path: &str, text: &str, check_kind: Check) -> Vec<Option<usize>> {
         check(Path::new(path), text)
@@ -197,28 +171,31 @@ mod tests {
 
     #[test]
     fn lint_repo_finds_crate_names() {
-        let fixture = include_str!("../../tests/fixtures/crate_names.toml");
+        let lines = found(
+            "crates/engines/qwen3/Cargo.toml",
+            CRATE_NAMES,
+            Check::CrateNames,
+        );
 
-        assert_eq!(
-            found(
-                "crates/engines/qwen3/Cargo.toml",
-                fixture,
-                Check::CrateNames
-            ),
-            [None]
+        assert_eq!(lines, [Some(2)]);
+    }
+
+    #[test]
+    fn crate_names_fails_when_directory_has_no_crate() {
+        let lines = found("crates/sound/fx/Cargo.toml", CRATE_NAMES, Check::CrateNames);
+
+        assert_eq!(lines, [Some(2)]);
+    }
+
+    #[test]
+    fn crate_names_passes_when_name_follows_directory() {
+        let lines = found(
+            "crates/storage/qwen3/Cargo.toml",
+            CRATE_NAMES,
+            Check::CrateNames,
         );
-        assert_eq!(
-            found("crates/sound/fx/Cargo.toml", fixture, Check::CrateNames),
-            [None]
-        );
-        assert!(
-            found(
-                "crates/storage/qwen3/Cargo.toml",
-                fixture,
-                Check::CrateNames
-            )
-            .is_empty()
-        );
+
+        assert!(lines.is_empty());
     }
 
     #[test]
@@ -244,16 +221,25 @@ mod tests {
 
     #[test]
     fn lint_repo_finds_lint_override() {
-        let fixture = include_str!("../../tests/fixtures/lint_override.toml");
+        let fixture = include_str!("../../../tests/fixtures/lint_override.toml");
 
         let lines = found("crates/text/Cargo.toml", fixture, Check::LintOverride);
+
+        assert_eq!(lines, [Some(5)]);
+    }
+
+    #[test]
+    fn lint_override_has_no_line_when_lints_table_missing() {
+        let text = "[package]\nname = \"antenna-text\"\n";
+
+        let lines = found("crates/text/Cargo.toml", text, Check::LintOverride);
 
         assert_eq!(lines, [None]);
     }
 
     #[test]
     fn lint_repo_finds_versions() {
-        let fixture = include_str!("../../tests/fixtures/versions.toml");
+        let fixture = include_str!("../../../tests/fixtures/versions.toml");
 
         let lines = found("crates/text/Cargo.toml", fixture, Check::Versions);
 

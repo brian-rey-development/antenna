@@ -31,7 +31,6 @@ impl SourceLine {
     }
 }
 
-/// Returns `true` for a character of an identifier.
 pub(crate) fn is_word_character(character: char) -> bool {
     character.is_alphanumeric() || character == '_'
 }
