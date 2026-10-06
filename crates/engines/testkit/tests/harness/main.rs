@@ -6,9 +6,10 @@ mod engine;
 #[cfg(test)]
 mod tests {
     use std::cell::Cell;
+    use std::error::Error;
 
-    use antenna_core::{ModelFiles, Quality, VoiceDescriptor};
-    use antenna_engine_testkit::Harness;
+    use antenna_core::{CoreError, EngineError, ModelFiles, Quality, VoiceDescriptor};
+    use antenna_engine_testkit::{Cause, Condition, Harness};
 
     use crate::engine::{Defect, EN_FIRST, NO_VOICES, TestFactory, VOICES, factory, harness_of};
 
@@ -35,7 +36,14 @@ mod tests {
         let violation = harness_of(&factory).check_descriptor().unwrap_err();
 
         assert_eq!((violation.voice, violation.quality), (None, None));
-        assert_eq!(violation.condition, "the engine has a voice");
+        assert_eq!(violation.condition, Condition::Descriptor);
+        assert!(matches!(
+            violation.source,
+            Some(Cause::Descriptor(CoreError::InvalidDescriptor {
+                defect: antenna_core::Defect::NoVoices,
+                ..
+            }))
+        ));
     }
 
     #[test]
@@ -44,7 +52,7 @@ mod tests {
 
         let violation = harness_of(&factory).check_audio().unwrap_err();
 
-        assert_eq!(violation.condition, "all samples are finite");
+        assert_eq!(violation.condition, Condition::FiniteSamples);
         assert_eq!(violation.voice, Some(EN_FIRST.id));
     }
 
@@ -54,7 +62,7 @@ mod tests {
 
         let violation = harness_of(&factory).check_audio().unwrap_err();
 
-        assert_eq!(violation.condition, "the peak is 1.0 or less");
+        assert_eq!(violation.condition, Condition::Peak);
     }
 
     #[test]
@@ -74,7 +82,7 @@ mod tests {
 
         let violation = harness_of(&factory).check_break().unwrap_err();
 
-        assert_eq!(violation.condition, "emit is not called after a Break");
+        assert_eq!(violation.condition, Condition::Break);
     }
 
     #[test]
@@ -83,10 +91,7 @@ mod tests {
 
         let violation = harness_of(&factory).check_determinism().unwrap_err();
 
-        assert_eq!(
-            violation.condition,
-            "two calls with one segment give the same samples"
-        );
+        assert_eq!(violation.condition, Condition::Determinism);
     }
 
     #[test]
@@ -95,8 +100,7 @@ mod tests {
 
         let violation = harness_of(&factory).check_reset().unwrap_err();
 
-        let condition = "a call after a Break gives the samples of a new engine";
-        assert_eq!(violation.condition, condition);
+        assert_eq!(violation.condition, Condition::Reset);
     }
 
     #[test]
@@ -105,7 +109,11 @@ mod tests {
 
         let violation = harness_of(&factory).check_edge_segments().unwrap_err();
 
-        assert_eq!(violation.condition, "the synthesis succeeds");
+        assert_eq!(violation.condition, Condition::Synthesis);
+        assert!(matches!(
+            violation.source,
+            Some(Cause::Engine(EngineError::Inference(_)))
+        ));
     }
 
     #[test]
@@ -114,8 +122,21 @@ mod tests {
 
         let violation = harness_of(&factory).check_audio().unwrap_err();
 
-        let condition = "the model files contain each key that the engine reads";
-        assert_eq!(violation.condition, condition);
+        assert_eq!(violation.condition, Condition::Load);
+        assert!(matches!(
+            violation.source,
+            Some(Cause::Engine(EngineError::MissingFile { key: "weights" }))
+        ));
+    }
+
+    #[test]
+    fn violation_source_is_engine_error_when_load_fails() {
+        let factory = factory(Defect::NeedsModelFile);
+
+        let violation = harness_of(&factory).check_audio().unwrap_err();
+
+        let source = violation.source().unwrap().to_string();
+        assert_eq!(source, "the model file weights is missing");
     }
 
     #[test]

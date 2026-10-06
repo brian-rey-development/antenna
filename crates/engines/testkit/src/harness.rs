@@ -2,12 +2,11 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::ControlFlow;
 
 use antenna_core::{
-    Engine, EngineFactory, Language, ModelFiles, PcmChunk, Quality, Segment, SegmentIndex,
-    VoiceDescriptor, VoiceId, check_descriptor,
+    Engine, EngineError, EngineFactory, Language, ModelFiles, PcmChunk, Quality, Segment,
+    SegmentIndex, VoiceDescriptor, check_descriptor,
 };
-use thiserror::Error;
 
-use crate::condition;
+use crate::{Cause, Condition, Violation};
 
 const SHORT_SEGMENT: &str = "Hello.";
 const LONG_SEGMENT_SOURCE: &str = "The quick brown fox jumps over the lazy dog. ";
@@ -24,22 +23,6 @@ pub type FilesFn<'a> = &'a dyn Fn(&VoiceDescriptor, Quality) -> ModelFiles;
 pub struct Harness<'a> {
     factory: &'a dyn EngineFactory,
     files: FilesFn<'a>,
-}
-
-/// A failed condition of the conformance suite.
-#[derive(Debug, Error)]
-#[error("failed condition: {condition} (voice {}, quality {})", or_none(.voice.as_ref()), or_none(.quality.as_ref()))]
-pub struct Violation {
-    /// The voice of the failed case, or `None` for a descriptor check.
-    pub voice: Option<VoiceId>,
-    /// The quality of the failed case, or `None` for a descriptor check.
-    pub quality: Option<Quality>,
-    /// The condition that the engine did not satisfy.
-    pub condition: &'static str,
-}
-
-fn or_none(value: Option<&impl ToString>) -> String {
-    value.map_or_else(|| "none".to_owned(), ToString::to_string)
 }
 
 impl Debug for Harness<'_> {
@@ -66,7 +49,8 @@ impl<'a> Harness<'a> {
         check_descriptor(self.factory.descriptor()).map_err(|error| Violation {
             voice: None,
             quality: None,
-            condition: condition::of_descriptor(error),
+            condition: Condition::Descriptor,
+            source: Some(Cause::Descriptor(error)),
         })
     }
 
@@ -99,7 +83,7 @@ impl<'a> Harness<'a> {
         self.for_each_case(|case| {
             let calls = synthesize_until_break(case.load()?.as_mut())?;
             if calls > 1 {
-                return Err("emit is not called after a Break");
+                return Err(Condition::Break.into());
             }
             Ok(())
         })
@@ -116,7 +100,7 @@ impl<'a> Harness<'a> {
             let first = synthesize(engine.as_mut(), SHORT_SEGMENT)?;
             let second = synthesize(engine.as_mut(), SHORT_SEGMENT)?;
             if !is_same(&first, &second) {
-                return Err("two calls with one segment give the same samples");
+                return Err(Condition::Determinism.into());
             }
             Ok(())
         })
@@ -134,7 +118,7 @@ impl<'a> Harness<'a> {
             let after_break = synthesize(stopped.as_mut(), SHORT_SEGMENT)?;
             let fresh = synthesize(case.load()?.as_mut(), SHORT_SEGMENT)?;
             if !is_same(&after_break, &fresh) {
-                return Err("a call after a Break gives the samples of a new engine");
+                return Err(Condition::Reset.into());
             }
             Ok(())
         })
@@ -158,7 +142,7 @@ impl<'a> Harness<'a> {
     /// failed condition.
     fn for_each_case(
         &self,
-        check: impl Fn(&Case<'_>) -> Result<(), &'static str>,
+        check: impl Fn(&Case<'_>) -> Result<(), Failure>,
     ) -> Result<(), Violation> {
         let descriptor = self.factory.descriptor();
         let voices = Language::ALL
@@ -171,14 +155,39 @@ impl<'a> Harness<'a> {
                     voice,
                     quality,
                 };
-                check(&case).map_err(|condition| Violation {
+                check(&case).map_err(|failure| Violation {
                     voice: Some(voice.id),
                     quality: Some(quality),
-                    condition,
+                    condition: failure.condition,
+                    source: failure.source.map(Cause::Engine),
                 })?;
             }
         }
         Ok(())
+    }
+}
+
+/// The failed condition of one case, and the error that broke it.
+struct Failure {
+    condition: Condition,
+    source: Option<EngineError>,
+}
+
+impl Failure {
+    fn with_error(condition: Condition, error: EngineError) -> Self {
+        Self {
+            condition,
+            source: Some(error),
+        }
+    }
+}
+
+impl From<Condition> for Failure {
+    fn from(condition: Condition) -> Self {
+        Self {
+            condition,
+            source: None,
+        }
     }
 }
 
@@ -190,12 +199,12 @@ struct Case<'a> {
 }
 
 impl Case<'_> {
-    fn load(&self) -> Result<Box<dyn Engine>, &'static str> {
+    fn load(&self) -> Result<Box<dyn Engine>, Failure> {
         let files = (self.harness.files)(self.voice, self.quality);
         self.harness
             .factory
             .load(self.voice, self.quality, &files)
-            .map_err(|error| condition::of_engine(&error))
+            .map_err(|error| Failure::with_error(Condition::Load, error))
     }
 }
 
@@ -203,7 +212,7 @@ fn segment(text: &str) -> Segment {
     Segment::new(SegmentIndex::new(0), text, 0..text.len())
 }
 
-fn synthesize(engine: &mut dyn Engine, text: &str) -> Result<Vec<f32>, &'static str> {
+fn synthesize(engine: &mut dyn Engine, text: &str) -> Result<Vec<f32>, Failure> {
     let mut samples = Vec::new();
     let mut emit = |chunk: PcmChunk| {
         samples.extend(chunk.into_samples());
@@ -211,13 +220,13 @@ fn synthesize(engine: &mut dyn Engine, text: &str) -> Result<Vec<f32>, &'static 
     };
     engine
         .synthesize(&segment(text), &mut emit)
-        .map_err(|error| condition::of_engine(&error))?;
+        .map_err(|error| Failure::with_error(Condition::Synthesis, error))?;
     Ok(samples)
 }
 
 /// Synthesizes the short segment with an `emit` that returns `Break`, and returns the number of
 /// calls of `emit`.
-fn synthesize_until_break(engine: &mut dyn Engine) -> Result<usize, &'static str> {
+fn synthesize_until_break(engine: &mut dyn Engine) -> Result<usize, Failure> {
     let mut calls = 0;
     let mut emit = |_| {
         calls += 1;
@@ -225,19 +234,19 @@ fn synthesize_until_break(engine: &mut dyn Engine) -> Result<usize, &'static str
     };
     engine
         .synthesize(&segment(SHORT_SEGMENT), &mut emit)
-        .map_err(|error| condition::of_engine(&error))?;
+        .map_err(|error| Failure::with_error(Condition::Synthesis, error))?;
     Ok(calls)
 }
 
-fn check_samples(samples: &[f32]) -> Result<(), &'static str> {
+fn check_samples(samples: &[f32]) -> Result<(), Failure> {
     if samples.is_empty() {
-        return Err("the segment gives more than 0 samples");
+        return Err(Condition::NonEmptyAudio.into());
     }
     if !samples.iter().all(|sample| sample.is_finite()) {
-        return Err("all samples are finite");
+        return Err(Condition::FiniteSamples.into());
     }
     if samples.iter().any(|sample| sample.abs() > MAX_PEAK) {
-        return Err("the peak is 1.0 or less");
+        return Err(Condition::Peak.into());
     }
     Ok(())
 }

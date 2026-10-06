@@ -270,7 +270,21 @@ impl<'a> Harness<'a> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub struct Violation { pub voice: Option<VoiceId>, pub quality: Option<Quality>, pub condition: &'static str }
+pub struct Violation {
+    pub voice: Option<VoiceId>,
+    pub quality: Option<Quality>,
+    pub condition: Condition,
+    #[source] pub source: Option<Cause>,                // None when the engine gives wrong audio
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, strum::Display)]   // the text form states the condition
+pub enum Condition { Descriptor, Load, Synthesis, NonEmptyAudio, FiniteSamples, Peak, Break, Determinism, Reset }
+
+#[derive(Debug, thiserror::Error)]
+pub enum Cause {
+    Descriptor(CoreError),                             // the error of check_descriptor, with the defect
+    Engine(EngineError),                               // the error of load or synthesize
+}
 
 #[macro_export]
 macro_rules! conformance {
@@ -281,7 +295,7 @@ macro_rules! conformance {
 
 An engine crate writes `antenna_engine_testkit::conformance!(factory, files)` in `tests/conformance.rs`. An engine that needs downloaded models writes `conformance!(factory, files, ignore = "needs models")`. `files` is a closure that returns the `ModelFiles` of a voice and a quality.
 
-Each check except `check_descriptor` runs on the first voice of each language, one time for each `Quality`. A `Violation` names the voice, the quality and the failed condition. `check_descriptor` gives a `Violation` with no voice and no quality.
+Each check except `check_descriptor` runs on the first voice of each language, one time for each `Quality`. A `Violation` names the voice, the quality and the failed condition. If an error of the core or of the engine broke the condition, the `Violation` keeps that error as its source. `check_descriptor` gives a `Violation` with no voice and no quality.
 
 The checks have these definitions.
 

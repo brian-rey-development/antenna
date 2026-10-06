@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 antenna-core.workspace = true
 flume.workspace = true
+strum = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true, features = ["std"] }
 
 [lints]
