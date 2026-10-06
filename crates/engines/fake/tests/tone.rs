@@ -9,13 +9,13 @@ mod tests {
         EngineError, EngineFactory, EngineId, Language, ModelFiles, Quality, SampleRate, Segment,
         SegmentIndex, VoiceDescriptor, VoiceId,
     };
-    use antenna_engine_fake::{FakeFactory, Fault};
+    use antenna_engine_fake::{Factory, Fault};
 
     const RATE: SampleRate = SampleRate::HZ_24000;
     const ONE_SECOND_TEXT: &str = "abcdefghijklmnopqrstuvwxy";
 
     fn voice(key: &str) -> &'static VoiceDescriptor {
-        FakeFactory::default()
+        Factory::default()
             .descriptor()
             .voices
             .iter()
@@ -24,7 +24,7 @@ mod tests {
     }
 
     fn chunks(
-        factory: FakeFactory,
+        factory: Factory,
         voice_key: &str,
         quality: Quality,
         index: u32,
@@ -42,7 +42,7 @@ mod tests {
 
     fn samples(voice_key: &str, index: u32, text: &str) -> Vec<f32> {
         chunks(
-            FakeFactory::default(),
+            Factory::default(),
             voice_key,
             Quality::Balanced,
             index,
@@ -61,7 +61,7 @@ mod tests {
 
     #[test]
     fn fake_has_four_named_voices_for_each_language() {
-        let descriptor = FakeFactory::default().descriptor();
+        let descriptor = Factory::default().descriptor();
 
         for language in Language::ALL {
             let voices: Vec<_> = descriptor.voices_for(language).collect();
@@ -93,6 +93,8 @@ mod tests {
             ("en-alba", 1, 440),
             ("en-alba", 3, 880),
             ("en-alba", 5, 440),
+            ("pt-bruno", 0, 247),
+            ("it-clara", 0, 262),
             ("de-dario", 2, 882),
         ];
 
@@ -119,14 +121,7 @@ mod tests {
 
     #[test]
     fn fake_emits_chunks_of_480_samples() {
-        let chunks = chunks(
-            FakeFactory::default(),
-            "en-alba",
-            Quality::Fast,
-            0,
-            "Hello.",
-        )
-        .unwrap();
+        let chunks = chunks(Factory::default(), "en-alba", Quality::Fast, 0, "Hello.").unwrap();
 
         assert_eq!(chunks.len(), 12);
         assert!(chunks.iter().all(|chunk| chunk.len() == 480));
@@ -135,7 +130,7 @@ mod tests {
     #[test]
     fn fake_audio_is_same_when_quality_changes() {
         let audio = Quality::ALL
-            .map(|quality| chunks(FakeFactory::default(), "en-alba", quality, 1, "Hi").unwrap());
+            .map(|quality| chunks(Factory::default(), "en-alba", quality, 1, "Hi").unwrap());
 
         assert_eq!(audio[0], audio[1]);
         assert_eq!(audio[1], audio[2]);
@@ -143,7 +138,7 @@ mod tests {
 
     #[test]
     fn fake_returns_error_when_fault_fail_at_segment() {
-        let factory = FakeFactory::with_fault(Fault::FailAt {
+        let factory = Factory::with_fault(Fault::FailAt {
             segment: SegmentIndex::new(2),
         });
 
@@ -157,7 +152,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "the fake engine panics at segment 3 on purpose")]
     fn fake_panics_when_fault_panic_at_segment() {
-        let factory = FakeFactory::with_fault(Fault::PanicAt {
+        let factory = Factory::with_fault(Fault::PanicAt {
             segment: SegmentIndex::new(3),
         });
         chunks(factory, "en-alba", Quality::Balanced, 2, "Hi").unwrap();
@@ -172,7 +167,7 @@ mod tests {
             ..*voice("en-alba")
         };
 
-        let result = FakeFactory::default().load(&foreign, Quality::Fast, &ModelFiles::default());
+        let result = Factory::default().load(&foreign, Quality::Fast, &ModelFiles::default());
 
         assert!(matches!(result, Err(EngineError::Load(_))));
     }

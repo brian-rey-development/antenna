@@ -6,4 +6,4 @@ mod engine;
 mod error;
 mod factory;
 
-pub use factory::{FakeFactory, Fault};
+pub use factory::{Factory, Fault};

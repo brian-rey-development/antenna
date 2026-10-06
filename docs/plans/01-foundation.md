@@ -233,14 +233,14 @@ In a `const` context, `EngineId::new` and `VoiceId::new` panic when a value is n
 
 `antenna-engine-fake` depends only on `antenna-core`. Its dev-dependency is `antenna-engine-testkit`.
 
-1. `FakeFactory` implements `Default`. It has four voices for each language, 24 voices in total. The voice names are "Alba", "Bruno", "Clara" and "Dario" in each language. The voice key is the language code and the lowercase name, for example `fake/es-alba`.
+1. `Factory` implements `Default`. `lib.rs` exports it as `antenna_engine_fake::Factory`, as `docs/standards.md` section 3.4 says. It has four voices for each language, 24 voices in total. The voice names are "Alba", "Bruno", "Clara" and "Dario" in each language. The voice key is the language code and the lowercase name, for example `fake/es-alba`.
 2. Each voice has a `Localized` description in English and Spanish, for example "Test tone, low pitch" and "Tono de prueba, grave".
 3. The descriptor has three variants with no artifacts. The `parameters` text of each variant is "0". The voices have no artifacts.
 4. Sample rate `SampleRate::HZ_24000`. `max_segment_chars` is 400.
 5. For each segment, the engine makes a sine tone. The base frequency of the four voices is 220, 247, 262 and 294 Hz. The frequency is the base frequency multiplied by `1 + (index mod 4)`, where `index` is the segment index. The duration is 40 ms for each character of the segment text. The amplitude is 0.25.
 6. The quality changes nothing in the audio.
 7. The engine emits chunks of 480 samples.
-8. `FakeFactory::with_fault(fault: Fault) -> Self` makes an engine that fails on purpose. `Fault` has the variants `PanicAt { segment: SegmentIndex }` and `FailAt { segment: SegmentIndex }`. Stage 06 uses these faults.
+8. `Factory::with_fault(fault: Fault) -> Self` makes an engine that fails on purpose. `Fault` has the variants `PanicAt { segment: SegmentIndex }` and `FailAt { segment: SegmentIndex }`. Stage 06 uses these faults.
 
 ### `antenna-engine-testkit`
 
@@ -355,7 +355,7 @@ Write the ADRs 0001 to 0007, 0011 and 0012 of `docs/architecture.md` section 16.
 9. Write the test `core_types_have_required_derives`. It calls a generic function with trait bounds for each type of the derive list.
 10. Make `antenna-engine-testkit` with `RecordingOutput`, `Harness` and the `conformance!` macro.
 11. Write the self-tests of the test kit. For each check, make a defective engine in the test file and make sure that the check returns `Err`.
-12. Make `antenna-engine-fake`. Add `antenna_engine_testkit::conformance!(FakeFactory::default(), &|_, _| ModelFiles::default())` to `tests/conformance.rs`.
+12. Make `antenna-engine-fake`. Add `antenna_engine_testkit::conformance!(Factory::default(), &|_, _| ModelFiles::default())` to `tests/conformance.rs`.
 13. Make `antenna-engine-registry` with the `engine-fake` feature.
 14. Write the CI workflow. Use a matrix of `macos-latest`, `ubuntu-latest` and `windows-latest`. Install the tools with `taiki-e/install-action`. Cache with `Swatinem/rust-cache`. Set the environment variable `NEXTEST_PROFILE=ci` for the job, so nextest uses the `ci` profile of `.config/nextest.toml`. Run `cargo xtask check`.
 15. Write the ADRs 0001 to 0007, 0011 and 0012.
@@ -397,7 +397,7 @@ Write the ADRs 0001 to 0007, 0011 and 0012 of `docs/architecture.md` section 16.
 | AC-01-29 | No crate has `#[non_exhaustive]` | `cargo xtask lint-repo` passes, and test `lint_repo_finds_non_exhaustive` passes |
 | AC-01-30 | `Registry::engine` finds an engine by its text and rejects an unknown text | Tests `registry_finds_engine_when_given_id_text` and `registry_fails_when_engine_unknown` |
 | AC-01-31 | A default entry with no registered factory falls back to the first voice of the language | Test `registry_uses_first_voice_when_default_entry_has_no_factory`, which calls `from_parts` with a default voice id of an engine that is not in the factory list |
-| AC-01-32 | `FakeFactory::with_fault` fails or panics at the given segment | Tests `fake_returns_error_when_fault_fail_at_segment` and `fake_panics_when_fault_panic_at_segment` |
+| AC-01-32 | `Factory::with_fault` of the `fake` engine fails or panics at the given segment | Tests `fake_returns_error_when_fault_fail_at_segment` and `fake_panics_when_fault_panic_at_segment` |
 | AC-01-33 | The `fake` tone has the frequency and the duration of deliverable 5 | Tests `fake_tone_lasts_40_ms_for_each_character` and `fake_tone_frequency_follows_segment_index` |
 | AC-01-34 | The text forms of `TextFormat` round trip | Test `text_format_round_trips_when_text_parsed` |
 | AC-01-35 | CI uses the nextest `ci` profile | `grep -c 'NEXTEST_PROFILE: ci' .github/workflows/ci.yml` prints `1` |

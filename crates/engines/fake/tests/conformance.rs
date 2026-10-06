@@ -1,6 +1,6 @@
 //! The conformance suite of the `fake` engine.
 
 use antenna_core::ModelFiles;
-use antenna_engine_fake::FakeFactory;
+use antenna_engine_fake::Factory;
 
-antenna_engine_testkit::conformance!(FakeFactory::default(), &|_, _| ModelFiles::default());
+antenna_engine_testkit::conformance!(Factory::default(), &|_, _| ModelFiles::default());

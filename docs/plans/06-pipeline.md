@@ -287,8 +287,8 @@ The events channel of each job is `flume::unbounded`. The number of events of a 
 8. Write `worker/mod.rs` with the worker loop, the command handling and the job sequence.
 9. Write `job.rs` and `pipeline.rs`. `start`, `preload` and `timeline` check that a factory has the voice before they send a command. They return these errors directly and send no events.
 10. Write `tests/pipeline/outputs.rs`. `GateOutput` blocks each `write` until the test releases it through a `flume` channel. It reports each `begin_segment`, each write and each `finish` through a second channel. `FailingOutput` returns `SinkError::Closed` from its first `write`.
-11. Write `tests/pipeline/counting.rs`. `CountingFactory` wraps `FakeFactory` and counts the calls of `load` and `synthesize` with atomics.
-12. Write `tests/pipeline/artifacts.rs`. `ArtifactFactory` has a static descriptor with one voice and one artifact of 4 KB. The test writes the artifact bytes into a temporary source directory, and the descriptor has the SHA-256 of these bytes as a constant. The engine of `ArtifactFactory` delegates to `FakeFactory`.
+11. Write `tests/pipeline/counting.rs`. `CountingFactory` wraps `antenna_engine_fake::Factory` and counts the calls of `load` and `synthesize` with atomics.
+12. Write `tests/pipeline/artifacts.rs`. `ArtifactFactory` has a static descriptor with one voice and one artifact of 4 KB. The test writes the artifact bytes into a temporary source directory, and the descriptor has the SHA-256 of these bytes as a constant. The engine of `ArtifactFactory` delegates to `antenna_engine_fake::Factory`.
 13. Write the integration tests of the acceptance criteria in `tests/pipeline/main.rs`. Each test opens a `SegmentStore` and a `ModelStore` with `Source::Directory` in a new `tempfile::TempDir`.
 14. Run `cargo xtask check`. Fix each failure.
 15. Do the quality gate in `docs/standards.md` section 20.

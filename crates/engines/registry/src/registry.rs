@@ -22,7 +22,7 @@ impl Registry {
     pub fn new() -> Result<Self, RegistryError> {
         let factories: Vec<Arc<dyn EngineFactory>> = vec![
             #[cfg(feature = "engine-fake")]
-            Arc::new(antenna_engine_fake::FakeFactory::default()),
+            Arc::new(antenna_engine_fake::Factory::default()),
         ];
         Self::from_parts(factories, DEFAULT_VOICES)
     }

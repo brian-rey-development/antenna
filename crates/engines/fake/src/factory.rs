@@ -9,11 +9,11 @@ use crate::error::FakeError;
 
 /// The factory of the `fake` engine. It has four voices for each language and no model files.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct FakeFactory {
+pub struct Factory {
     fault: Option<Fault>,
 }
 
-/// A failure that the engines of a [`FakeFactory`] make on purpose, to test the pipeline.
+/// A failure that the engines of a [`Factory`] make on purpose, to test the pipeline.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Fault {
     /// The engine panics when it synthesizes this segment.
@@ -28,14 +28,14 @@ pub enum Fault {
     },
 }
 
-impl FakeFactory {
+impl Factory {
     /// Makes a factory whose engines fail with a fault.
     pub fn with_fault(fault: Fault) -> Self {
         Self { fault: Some(fault) }
     }
 }
 
-impl EngineFactory for FakeFactory {
+impl EngineFactory for Factory {
     fn descriptor(&self) -> &'static EngineDescriptor {
         &DESCRIPTOR
     }

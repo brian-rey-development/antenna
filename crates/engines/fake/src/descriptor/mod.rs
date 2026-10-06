@@ -8,10 +8,8 @@ use antenna_core::{
 
 pub(crate) use voices::{Timbre, timbre_of};
 
-/// The id of the `fake` engine.
 const ID: EngineId = EngineId::new("fake");
 
-/// The sample rate of the tones.
 pub(crate) const SAMPLE_RATE: SampleRate = SampleRate::HZ_24000;
 
 const MAX_SEGMENT_CHARS: NonZeroUsize = NonZeroUsize::new(400).unwrap();
@@ -22,7 +20,6 @@ const VARIANT: Variant = Variant {
     artifacts: &[],
 };
 
-/// The descriptor of the `fake` engine.
 pub(crate) static DESCRIPTOR: EngineDescriptor = EngineDescriptor {
     id: ID,
     name: "Fake",

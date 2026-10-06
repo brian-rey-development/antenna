@@ -5,7 +5,7 @@
 /// downloaded models.
 ///
 /// ```text
-/// antenna_engine_testkit::conformance!(FakeFactory::default(), &|_, _| ModelFiles::default());
+/// antenna_engine_testkit::conformance!(Factory::default(), &|_, _| ModelFiles::default());
 /// antenna_engine_testkit::conformance!(Factory, &files, ignore = "needs models");
 /// ```
 #[macro_export]
