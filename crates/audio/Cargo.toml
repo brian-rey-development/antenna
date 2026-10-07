@@ -8,5 +8,14 @@ repository.workspace = true
 rust-version.workspace = true
 publish = false
 
+[dependencies]
+antenna-core.workspace = true
+hound.workspace = true
+rubato = { workspace = true, features = ["fft_resampler"] }
+thiserror = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
 [lints]
 workspace = true
