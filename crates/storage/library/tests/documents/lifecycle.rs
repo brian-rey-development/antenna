@@ -87,7 +87,7 @@ fn load_fails_when_text_file_is_blank() {
 
     let result = library.load(id);
 
-    assert!(matches!(result, Err(LibraryError::Io { .. })));
+    assert!(matches!(result, Err(LibraryError::EmptyText { .. })));
 }
 
 #[test]

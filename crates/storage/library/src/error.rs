@@ -1,6 +1,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
+use antenna_core::CoreError;
 use thiserror::Error;
 use toml::{de, ser};
 
@@ -50,6 +51,15 @@ pub enum LibraryError {
         /// The error of the operating system.
         #[source]
         source: io::Error,
+    },
+    /// A text file is empty or contains only whitespace.
+    #[error("the text file {path} is empty")]
+    EmptyText {
+        /// The path of the text file.
+        path: PathBuf,
+        /// The error of the document constructor.
+        #[source]
+        source: CoreError,
     },
     /// A text is not a segment key.
     #[error("{text:?} is not 64 lowercase hex characters")]

@@ -1,5 +1,4 @@
 use std::fs;
-use std::io::{self, ErrorKind};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -18,8 +17,8 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] if
-    /// the text file is absent, is not UTF-8 or is blank.
+    /// Returns [`LibraryError::NotFound`] if no document has the id, [`LibraryError::Io`] if the
+    /// text file is absent or is not UTF-8, and [`LibraryError::EmptyText`] if it is blank.
     pub fn load(&self, id: DocumentId) -> Result<(Arc<DocumentMeta>, Document), LibraryError> {
         self.update(id, |current| {
             let document = self.read_document(current)?;
@@ -89,10 +88,8 @@ impl Library {
     fn read_document(&self, current: &DocumentMeta) -> Result<Document, LibraryError> {
         let path = paths::text_path(&self.directory(current.id), current.format);
         let text = fs::read_to_string(&path).map_err(LibraryError::io(&path))?;
-        Document::new(text, current.format).map_err(|source| LibraryError::Io {
-            path,
-            source: io::Error::new(ErrorKind::InvalidData, source),
-        })
+        Document::new(text, current.format)
+            .map_err(|source| LibraryError::EmptyText { path, source })
     }
 }
 

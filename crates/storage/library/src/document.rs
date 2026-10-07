@@ -103,7 +103,8 @@ pub struct ExportRecord {
 pub struct DocumentMeta {
     /// The identifier, also the name of the document directory.
     pub id: DocumentId,
-    /// The title that the user sees. It is never blank.
+    /// The title that the user sees. `create` and `rename` never store a blank title, but a
+    /// hand-edited file can hold one.
     pub title: String,
     /// The format of the text file.
     #[serde(with = "crate::text_form")]

@@ -170,12 +170,13 @@ pub enum LibraryError {
     MetaWrite { path: PathBuf, source: toml::ser::Error },
     Wav { path: PathBuf, source: hound::Error },
     Io { path: PathBuf, source: io::Error },
+    EmptyText { path: PathBuf, source: CoreError },
     InvalidSegmentKey { text: String },
     NoDataDir,
 }
 ```
 
-`LibraryError` has no `#[non_exhaustive]`. Each variant with a source keeps the concrete error of its library. `NoDataDir` is the error of `open_default` when `ANTENNA_DATA_DIR` is not set and the platform gives no data directory. `InvalidSegmentKey` is the error of `SegmentKey::from_str` for a text that is not 64 lowercase hex characters. It keeps the text, because no library error exists for it.
+`LibraryError` has no `#[non_exhaustive]`. Each variant with a source keeps the concrete error of its library. `NoDataDir` is the error of `open_default` when `ANTENNA_DATA_DIR` is not set and the platform gives no data directory. `InvalidSegmentKey` is the error of `SegmentKey::from_str` for a text that is not 64 lowercase hex characters. It keeps the text, because no library error exists for it. `EmptyText` is the error of `load` for a text file that has no text. It keeps the `CoreError` of the document constructor.
 
 `index.rs` holds the index in a `std::sync::RwLock`. It is the only lock of the workspace that `docs/architecture.md` section 6.7 permits. `clippy::disallowed_types` fires on the `use` line, on the field type and on `RwLock::new`, so `index.rs` starts with the inner attribute `#![expect(clippy::disallowed_types, reason = "the library index is the one permitted lock")]`. No other file names `RwLock`.
 
