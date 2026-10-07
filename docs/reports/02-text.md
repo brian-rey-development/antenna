@@ -5,7 +5,7 @@
 | Stage file | `docs/plans/02-text.md` |
 | Date | 2026-10-06 |
 | Result | Complete, with one criterion pending (AC-02-18). No Blocked section |
-| CI | See the line "CI" in section 5 |
+| CI | Run 37552665239 on commit `0b17331`, green on `macos-latest`, `ubuntu-latest` and `windows-latest`. The run before it failed on Windows, because a checkout changed the line ends of the fixtures. Commit `0b17331` fixes the tests |
 
 ## 1. Acceptance criteria
 
@@ -95,5 +95,3 @@ None. AC-02-18 is pending.
 ## 5. Manual QA and sign-off
 
 No manual QA step in this stage. Sign-off for AC-02-18. Project owner, approved on ____ .
-
-CI. To fill after the push.
