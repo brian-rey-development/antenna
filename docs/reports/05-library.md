@@ -5,7 +5,7 @@
 | Stage file | `docs/plans/05-library.md` |
 | Date | 2026-10-06 |
 | Result | Complete, with three manual criteria pending. No Blocked section |
-| CI | See section 4 |
+| CI | Run 37552421068 on commit `47ddf34` passed on `ubuntu-latest` and `macos-latest`. It failed on `windows-latest` in the text snapshot tests of stage 02, and the stage 02 commit `0b17331` fixed them. Run 37552665239 on `0b17331`, which contains all commits of this stage, passed on the three platforms |
 
 ## 1. Acceptance criteria
 
