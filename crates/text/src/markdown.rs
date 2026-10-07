@@ -1,24 +1,19 @@
+use std::borrow::Cow;
 use std::ops::Range;
 
 use pulldown_cmark::{Event, LinkType, Options, Parser, Tag, TagEnd};
 
+use crate::prose::Prose;
 use crate::source_map::SourceMap;
 
 const BLOCK_SEPARATOR: char = '\n';
 const SOFT_BREAK_TEXT: &str = " ";
 
-/// The result of the conversion of a Markdown document.
-pub(crate) struct Converted {
-    pub(crate) text: String,
-    pub(crate) blocks: Vec<Range<usize>>,
-    pub(crate) map: SourceMap,
-}
-
 /// Converts Markdown to prose. Each paragraph, heading, list item, table cell and thematic break
 /// ends a block. Emphasis, strong text and strikethrough keep their inner text. A link keeps its
 /// text and loses its URL. Autolinks, images, code blocks and HTML give no text. Inline code
 /// keeps its text, and each line break gives one space.
-pub(crate) fn convert(source: &str) -> Converted {
+pub(crate) fn convert(source: &str) -> Prose<'static> {
     let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH;
     let mut converter = Converter::new(source);
     for (event, range) in Parser::new_ext(source, options).into_offset_iter() {
@@ -129,21 +124,15 @@ impl<'a> Converter<'a> {
         }
     }
 
-    fn finish(mut self) -> Converted {
+    fn finish(mut self) -> Prose<'static> {
         self.end_block();
-        Converted {
-            text: self.text,
-            blocks: self.blocks,
-            map: self.map,
-        }
+        Prose::new(Cow::Owned(self.text), self.blocks, self.map)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use antenna_core::{Document, TextFormat};
-
-    use crate::prose::Prose;
 
     use super::*;
 
@@ -255,17 +244,17 @@ mod tests {
 
     #[test]
     fn prose_maps_to_exact_source_when_text_equals_source() {
-        let converted = convert("a &amp; b \\* c");
+        let prose = convert("a &amp; b \\* c");
 
-        assert_eq!(converted.map.source(4..5), 8..9);
-        assert_eq!(converted.map.source(6..7), 11..12);
+        assert_eq!(prose.map().source(4..5), 8..9);
+        assert_eq!(prose.map().source(6..7), 11..12);
     }
 
     #[test]
     fn prose_maps_to_piece_edges_when_entity() {
-        let converted = convert("a &amp; b \\* c");
+        let prose = convert("a &amp; b \\* c");
 
-        assert_eq!(converted.map.source(2..3), 2..7);
+        assert_eq!(prose.map().source(2..3), 2..7);
     }
 
     #[test]

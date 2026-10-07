@@ -16,17 +16,14 @@ pub(crate) struct Prose<'a> {
 }
 
 impl<'a> Prose<'a> {
+    pub(crate) fn new(text: Cow<'a, str>, blocks: Vec<Range<usize>>, map: SourceMap) -> Self {
+        Self { text, blocks, map }
+    }
+
     pub(crate) fn for_document(document: &'a Document) -> Self {
         match document.format() {
             TextFormat::Plain => plain(document.text()),
-            TextFormat::Markdown => {
-                let converted = markdown::convert(document.text());
-                Self {
-                    text: Cow::Owned(converted.text),
-                    blocks: converted.blocks,
-                    map: converted.map,
-                }
-            }
+            TextFormat::Markdown => markdown::convert(document.text()),
         }
     }
 
@@ -55,11 +52,7 @@ fn plain(text: &str) -> Prose<'_> {
     for block in &blocks {
         map.push_exact(block.start, block.clone());
     }
-    Prose {
-        text: Cow::Borrowed(text),
-        blocks,
-        map,
-    }
+    Prose::new(Cow::Borrowed(text), blocks, map)
 }
 
 fn plain_blocks(text: &str) -> Vec<Range<usize>> {
