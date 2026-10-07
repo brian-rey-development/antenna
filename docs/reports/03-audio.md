@@ -5,7 +5,7 @@
 | Stage file | `docs/plans/03-audio.md` |
 | Date | 2026-10-06 |
 | Result | Complete, with three manual criteria that wait for the project owner and for a quiet reference machine. No Blocked section |
-| CI | See section 6 |
+| CI | Run 37555039311 on commit `9c6bcc1`, green on `macos-latest`, `ubuntu-latest` and `windows-latest` |
 
 ## 1. Acceptance criteria
 
@@ -13,7 +13,7 @@ Each test name is a test of `cargo nextest run --workspace --all-features`. The 
 
 | ID | Result | Evidence |
 |---|---|---|
-| AC-03-01 | Pass | `cargo xtask check` exits with code 0 on each commit of the stage. The CI run is in section 6 |
+| AC-03-01 | Pass | `cargo xtask check` exits with code 0 on each commit of the stage. The CI run 37555039311 of the push of `9c6bcc1` has the conclusion `success` for the three jobs `check (macos-latest)`, `check (ubuntu-latest)` and `check (windows-latest)` |
 | AC-03-02 | Pass | Tests `fill_does_not_allocate_when_normal`, `_paused`, `_flush`, `_underrun` and `_buffering` in `callback.rs`. `lib.rs` installs `assert_no_alloc::AllocDisabler` for the unit tests |
 | AC-03-03 | Pass | Test `fill_writes_silence_when_paused` |
 | AC-03-04 | Pass | Tests `fill_discards_samples_when_flush_requested` and `fill_discards_samples_when_flush_requested_while_paused` |
@@ -154,8 +154,6 @@ The project owner writes "approved" and the date on each line.
 | AC-03-26 export time, from the command in section 4 | |
 | AC-03-27 playback on the default device, from the output in section 5 | |
 | AC-03-30 seek time, from the command in section 4 | |
-
-CI: a later commit of this report records the CI run of the stage.
 
 ## 7. Findings for later stages
 
