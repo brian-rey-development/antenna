@@ -12,12 +12,16 @@ publish = false
 antenna-core.workspace = true
 directories.workspace = true
 hound.workspace = true
+jiff = { workspace = true, features = ["serde", "std"] }
+serde = { workspace = true, features = ["derive", "std"] }
 sha2.workspace = true
 thiserror = { workspace = true, features = ["std"] }
 toml = { workspace = true, features = ["display", "parse", "serde", "std"] }
-uuid = { workspace = true, features = ["std"] }
+unicode-normalization = { workspace = true, features = ["std"] }
+uuid = { workspace = true, features = ["serde", "std", "v7"] }
 
 [dev-dependencies]
+proptest = { workspace = true, features = ["std"] }
 tempfile.workspace = true
 
 [lints]

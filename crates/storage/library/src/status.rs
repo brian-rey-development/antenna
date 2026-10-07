@@ -1,0 +1,215 @@
+use std::sync::Arc;
+
+use antenna_core::ExportFormat;
+
+use crate::DocumentMeta;
+
+/// The state of a document, derived from its stored data and from the progress of a running job.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Status {
+    /// Not all segments of the current text and voice are stored, and no job runs.
+    Draft,
+    /// A job runs for the document.
+    Generating {
+        /// The number of segments that the job completed.
+        done: u32,
+        /// The number of segments of the document.
+        total: u32,
+    },
+    /// All segments of the current text and voice are stored.
+    Ready,
+    /// The last export is not older than the last change.
+    Exported(ExportFormat),
+}
+
+/// A selection of documents by status.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Filter {
+    /// Each document.
+    All,
+    /// The documents with the status `Ready` or `Exported`.
+    Ready,
+    /// The documents with the status `Draft`.
+    Drafts,
+}
+
+impl Filter {
+    pub(crate) fn keeps(self, status: Status) -> bool {
+        match self {
+            Self::All => true,
+            Self::Ready => matches!(status, Status::Ready | Status::Exported(_)),
+            Self::Drafts => status == Status::Draft,
+        }
+    }
+}
+
+/// A document with its status, as the Library screen lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DocumentSummary {
+    /// The stored data of the document.
+    pub meta: Arc<DocumentMeta>,
+    /// The status of the document.
+    pub status: Status,
+}
+
+pub(crate) fn status(meta: &DocumentMeta, progress: Option<(u32, u32)>) -> Status {
+    if let Some((done, total)) = progress {
+        return Status::Generating { done, total };
+    }
+    if !has_current_audio(meta) {
+        return Status::Draft;
+    }
+    match &meta.last_export {
+        Some(record) if record.at >= meta.modified => Status::Exported(record.format),
+        Some(_) | None => Status::Ready,
+    }
+}
+
+fn has_current_audio(meta: &DocumentMeta) -> bool {
+    match (&meta.segments, &meta.voice) {
+        (Some(list), Some(voice)) => {
+            list.is_complete && list.text_hash == meta.text_hash && list.voice == *voice
+        }
+        (Some(_) | None, None) | (None, Some(_)) => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use antenna_core::{Quality, TextFormat, TextHash};
+    use jiff::Timestamp;
+
+    use super::*;
+    use crate::{DocumentId, ExportRecord, SegmentList, StoredVoice};
+
+    fn at(seconds: i64) -> Timestamp {
+        Timestamp::from_second(seconds).unwrap()
+    }
+
+    fn voice(quality: Quality) -> StoredVoice {
+        StoredVoice {
+            id: "fake/en-alba".to_owned(),
+            quality,
+        }
+    }
+
+    fn ready_meta() -> DocumentMeta {
+        DocumentMeta {
+            id: DocumentId::new(at(100)),
+            title: "Notes".to_owned(),
+            format: TextFormat::Plain,
+            language: None,
+            voice: Some(voice(Quality::Balanced)),
+            created: at(100),
+            modified: at(100),
+            opened: at(100),
+            text_hash: TextHash::new([1; 32]),
+            segments: Some(SegmentList {
+                text_hash: TextHash::new([1; 32]),
+                voice: voice(Quality::Balanced),
+                keys: Vec::new(),
+                is_complete: true,
+                duration: Duration::from_secs(5),
+            }),
+            last_export: None,
+        }
+    }
+
+    fn with_segments(change: impl FnOnce(&mut SegmentList)) -> DocumentMeta {
+        let mut meta = ready_meta();
+        change(meta.segments.as_mut().unwrap());
+        meta
+    }
+
+    fn exported_at(seconds: i64) -> DocumentMeta {
+        DocumentMeta {
+            last_export: Some(ExportRecord {
+                format: ExportFormat::Wav,
+                at: at(seconds),
+            }),
+            ..ready_meta()
+        }
+    }
+
+    #[test]
+    fn status_is_generating_when_progress_set() {
+        let status = status(&ready_meta(), Some((2, 9)));
+
+        assert_eq!(status, Status::Generating { done: 2, total: 9 });
+    }
+
+    #[test]
+    fn status_is_draft_when_segments_absent() {
+        let meta = DocumentMeta {
+            segments: None,
+            ..ready_meta()
+        };
+
+        assert_eq!(status(&meta, None), Status::Draft);
+    }
+
+    #[test]
+    fn status_is_draft_when_text_changed() {
+        let meta = with_segments(|list| list.text_hash = TextHash::new([2; 32]));
+
+        assert_eq!(status(&meta, None), Status::Draft);
+    }
+
+    #[test]
+    fn status_is_draft_when_segments_incomplete() {
+        let meta = with_segments(|list| list.is_complete = false);
+
+        assert_eq!(status(&meta, None), Status::Draft);
+    }
+
+    #[test]
+    fn status_is_draft_when_segments_voice_differs() {
+        let meta = with_segments(|list| list.voice = voice(Quality::Max));
+
+        assert_eq!(status(&meta, None), Status::Draft);
+    }
+
+    #[test]
+    fn status_is_draft_when_voice_absent() {
+        let meta = DocumentMeta {
+            voice: None,
+            ..ready_meta()
+        };
+
+        assert_eq!(status(&meta, None), Status::Draft);
+    }
+
+    #[test]
+    fn status_is_exported_when_export_after_change() {
+        assert_eq!(
+            status(&exported_at(101), None),
+            Status::Exported(ExportFormat::Wav)
+        );
+        assert_eq!(
+            status(&exported_at(100), None),
+            Status::Exported(ExportFormat::Wav)
+        );
+    }
+
+    #[test]
+    fn status_is_ready_when_export_before_change() {
+        assert_eq!(status(&exported_at(99), None), Status::Ready);
+    }
+
+    #[test]
+    fn status_is_ready_when_complete_and_not_exported() {
+        assert_eq!(status(&ready_meta(), None), Status::Ready);
+    }
+
+    #[test]
+    fn status_is_draft_when_export_exists_and_text_changed() {
+        let meta = DocumentMeta {
+            text_hash: TextHash::new([3; 32]),
+            ..exported_at(200)
+        };
+
+        assert_eq!(status(&meta, None), Status::Draft);
+    }
+}

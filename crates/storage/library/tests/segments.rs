@@ -12,7 +12,7 @@ mod tests {
         EngineDescriptor, EngineId, Localized, ModelLicense, PCM_SCALE, Quality, SampleRate,
         Variant, Variants, VoiceId,
     };
-    use antenna_library::{LibraryError, SegmentKey, SegmentStore};
+    use antenna_library::{Library, LibraryError, SegmentKey, SegmentStore};
     use tempfile::TempDir;
 
     const NO_FILES: Variant = Variant {
@@ -235,5 +235,17 @@ mod tests {
         SegmentStore::open(root.path().join("nested")).unwrap();
 
         assert!(root.path().join("nested").join("segments").is_dir());
+    }
+
+    #[test]
+    fn segment_store_matches_library_store_when_root_same() {
+        let root = tempfile::tempdir().unwrap();
+        let library = Library::open(root.path()).unwrap();
+        let store = SegmentStore::open(root.path()).unwrap();
+
+        store_segment(library.segments(), key('9'), &[0.5; 4]);
+
+        assert_eq!(store.path(&key('9')), library.segments().path(&key('9')));
+        assert!(store.contains(&key('9')));
     }
 }

@@ -2,12 +2,16 @@ use std::env;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use antenna_core::app_dirs;
+use antenna_core::{TextFormat, app_dirs};
 use directories::ProjectDirs;
 
-use crate::{LibraryError, SegmentKey};
+use crate::{DocumentId, LibraryError, SegmentKey};
 
 const DATA_DIR_ENV: &str = "ANTENNA_DATA_DIR";
+const LIBRARY_DIR_NAME: &str = "library";
+const META_FILE_NAME: &str = "document.toml";
+const MARKDOWN_FILE_NAME: &str = "text.md";
+const PLAIN_FILE_NAME: &str = "text.txt";
 const SEGMENTS_DIR_NAME: &str = "segments";
 const SEGMENT_KEY_PREFIX_CHARS: usize = 2;
 pub(crate) const SEGMENT_EXTENSION: &str = "wav";
@@ -31,6 +35,25 @@ pub(crate) fn default_root(
             .map(|dirs| dirs.data_dir().to_owned())
             .ok_or(LibraryError::NoDataDir),
     }
+}
+
+pub(crate) fn library_dir(root: &Path) -> PathBuf {
+    root.join(LIBRARY_DIR_NAME)
+}
+
+pub(crate) fn document_dir(library_dir: &Path, id: DocumentId) -> PathBuf {
+    library_dir.join(id.to_string())
+}
+
+pub(crate) fn meta_path(document_dir: &Path) -> PathBuf {
+    document_dir.join(META_FILE_NAME)
+}
+
+pub(crate) fn text_path(document_dir: &Path, format: TextFormat) -> PathBuf {
+    document_dir.join(match format {
+        TextFormat::Markdown => MARKDOWN_FILE_NAME,
+        TextFormat::Plain => PLAIN_FILE_NAME,
+    })
 }
 
 pub(crate) fn segments_dir(root: &Path) -> PathBuf {

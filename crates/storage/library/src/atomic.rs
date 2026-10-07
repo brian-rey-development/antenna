@@ -1,4 +1,5 @@
 use std::fs::{self, File};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -40,6 +41,18 @@ impl Drop for TempFile {
         // Drop cannot return the error. A temporary file that stays is deleted by collect_garbage.
         drop(fs::remove_file(&self.path));
     }
+}
+
+pub(crate) fn write(target: &Path, bytes: &[u8]) -> Result<(), LibraryError> {
+    let temp_file = TempFile::beside(target);
+    write_synced(temp_file.path(), bytes).map_err(LibraryError::io(temp_file.path()))?;
+    temp_file.persist(target)
+}
+
+fn write_synced(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let mut file = File::create(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()
 }
 
 pub(crate) fn sync_path(path: &Path) -> Result<(), LibraryError> {
@@ -93,5 +106,27 @@ mod tests {
 
         assert_eq!(fs::read(&target).unwrap(), b"new");
         assert!(!temp_path.exists());
+    }
+
+    #[test]
+    fn write_replaces_target_and_leaves_no_temp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("document.toml");
+        fs::write(&target, b"old").unwrap();
+
+        write(&target, b"new").unwrap();
+
+        assert_eq!(fs::read(&target).unwrap(), b"new");
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn write_fails_when_directory_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("missing").join("document.toml");
+
+        let result = write(&target, b"new");
+
+        assert!(matches!(result, Err(LibraryError::Io { .. })));
     }
 }
