@@ -26,9 +26,7 @@ impl Setup {
         let source = Source::Hub {
             endpoint: Some(server.endpoint().to_owned()),
         };
-        let store = ModelStore::open(root.path(), source)
-            .unwrap()
-            .with_retry_delays(NO_DELAYS);
+        let store = ModelStore::open(root.path(), source).with_retry_delays(NO_DELAYS);
         Self {
             server,
             store,

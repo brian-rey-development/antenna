@@ -60,7 +60,7 @@ pub struct ModelStore { root: PathBuf, source: Source, retry_delays: [Duration; 
 
 impl ModelStore {
     pub fn open_default() -> Result<Self, ModelError>;
-    pub fn open(root: impl Into<PathBuf>, source: Source) -> Result<Self, ModelError>;
+    pub fn open(root: impl Into<PathBuf>, source: Source) -> Self;
     pub fn root(&self) -> &Path;
     pub fn has_artifact(&self, artifact: &Artifact) -> bool;
     pub fn is_installed(&self, descriptor: &EngineDescriptor, voice: &VoiceDescriptor, quality: Quality) -> bool;
@@ -278,7 +278,7 @@ Write `docs/adr/0008-byte-range-artifacts.md`. It records why `Artifact` has `Ex
 | AC-04-17 | Two range artifacts of one archive have different local files | Test `layout_separates_ranges_of_one_file` |
 | AC-04-18 | Progress increases, never decreases, and ends at the total | Test `progress_is_monotonic_and_complete` |
 | AC-04-19 | Two artifacts with the same key return `ModelError::DuplicateKey` | Test `ensure_fails_when_keys_collide` |
-| AC-04-20 | A file is never visible at its final path before its hash check passes | Test `final_path_absent_until_hash_checked` |
+| AC-04-20 | A file is never visible at its final path before its hash check passes | Test `final_path_stays_absent_when_hash_differs` |
 | AC-04-21 | The default root uses `ANTENNA_MODEL_DIR` when it is set | Tests `default_root_uses_env_when_set` and `default_root_uses_data_dir_when_env_absent` |
 | AC-04-22 | `voice_artifacts` returns the variant artifacts of the quality, then the voice artifacts | Test `voice_artifacts_lists_variant_then_voice` |
 | AC-04-23 | The tests make no request to a host other than `127.0.0.1` **(manual)** | On the reference machine (Apple M5 Pro, 24 GB), run `networksetup -setairportpower en0 off` and remove any network cable. Make sure that `curl -sI https://huggingface.co` fails. Run `cargo nextest run -p antenna-models`. All tests pass. Run `networksetup -setairportpower en0 on` |

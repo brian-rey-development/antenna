@@ -19,8 +19,7 @@ impl Fixture {
     pub(crate) fn new() -> Self {
         let root = tempfile::tempdir().unwrap();
         let source = tempfile::tempdir().unwrap();
-        let store =
-            ModelStore::open(root.path(), Source::Directory(source.path().to_owned())).unwrap();
+        let store = ModelStore::open(root.path(), Source::Directory(source.path().to_owned()));
         Self {
             store,
             source,
@@ -29,7 +28,7 @@ impl Fixture {
     }
 
     pub(crate) fn store_at(&self, root: &Path) -> ModelStore {
-        ModelStore::open(root, Source::Directory(self.source.path().to_owned())).unwrap()
+        ModelStore::open(root, Source::Directory(self.source.path().to_owned()))
     }
 
     pub(crate) fn publish(&self, artifact: &Artifact, bytes: &[u8]) {

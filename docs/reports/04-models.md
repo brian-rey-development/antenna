@@ -32,7 +32,7 @@ The last local run of `cargo nextest run -p antenna-models` reported 101 tests r
 | AC-04-17 | Pass | Unit test `layout_separates_ranges_of_one_file` |
 | AC-04-18 | Pass | Unit test `progress_is_monotonic_and_complete`. Test `ensure_reports_increasing_progress_when_connection_breaks` checks it through `ensure` |
 | AC-04-19 | Pass | Test `ensure_fails_when_keys_collide` |
-| AC-04-20 | Pass | Test `final_path_stays_absent_when_hash_differs`. The plan names the test `final_path_absent_until_hash_checked`. The test cannot observe the instant of the hash check, so the new name tells what it proves. During the download and after a failed hash check, the final path does not exist. Unit tests of `commit` in `src/verify.rs` show that the file moves to the final path after the hash check passes |
+| AC-04-20 | Pass | Test `final_path_stays_absent_when_hash_differs`. The test cannot observe the instant of the hash check, so its name tells what it proves. The plan uses the same name. During the download and after a failed hash check, the final path does not exist. Unit tests of `commit` in `src/verify.rs` show that the file moves to the final path after the hash check passes |
 | AC-04-21 | Pass | Unit tests `default_root_uses_env_when_set` and `default_root_uses_data_dir_when_env_absent` |
 | AC-04-22 | Pass | Test `voice_artifacts_lists_variant_then_voice` |
 | AC-04-23 | Pending | Manual. See section 4 |
@@ -98,7 +98,7 @@ The author read the complete diff again. The pass removed the duplicate voice ch
 6. `flume` is a dev-dependency, because the clippy configuration forbids `Mutex` and `mpsc` for the records of the tests.
 7. A permanent error that is not `NotFound` returns `Network` with `attempts: 1`.
 8. `open` does not touch the disk. `ensure` creates the root directory before `fs4::available_space` (decision rule 2). `disk_usage` returns 0 for a root that does not exist.
-9. `ModelStore::open` keeps the `Result` of the plan signature, but it cannot fail now. A change to `Self` needs a change of the plan contract.
+9. `ModelStore::open` returns `Self`. It does not touch the disk, so it cannot fail. The plan signature is changed to match.
 10. A download counts only consecutive attempts without progress. The plan text of `ensure` step 5.3 and AC-04-08 says so.
 
 ## 4. Manual criteria
@@ -137,7 +137,7 @@ A second review of commit `deeb0f9` reported 13 findings. The project owner aske
 | 8. Duplicated code | Fixed. `has_declared_size` replaces two closures. `BLOCK_BYTES`, `FILE_BYTES`, `NOT_CANCELLED` and the path helpers `file`, `partial` and `with_suffix` are in `tests/support/mod.rs`. The method `Fixture::published` replaces the two copies of `published`. It is not in `tests/support/mod.rs`, because it needs the `Fixture` type of the `store` target, and the `hub` target would not use it. Both targets share one `FILE_BYTES` of 300000 bytes |
 | 9. Test quality | Fixed. The status loops have a message with the status in each assertion. The test of the final path has the name `final_path_stays_absent_when_hash_differs` (see AC-04-20). Test `ensure_resumes_when_partial_file_exists_and_extent_is_range` resumes an `Extent::Range` artifact over HTTP with a partial file |
 | 10. "failed after 1 attempts" | Fixed. The message is "the download of {artifact} failed, attempt count {attempts}". Test `network_message_names_attempt_count_when_count_is_one` |
-| 11. `open` creates the root | Fixed. `open` does not touch the disk. `ensure` creates the root before the disk space check. `disk_usage` returns 0 for a missing root. The text of decision rule 2 does not need a change, because it says to create the root first. Tests `open_leaves_root_absent_when_directory_missing`, `ensure_creates_root_when_directory_missing` and `disk_usage_is_zero_when_root_missing`. `open` keeps its `Result` (difference 9) |
+| 11. `open` creates the root | Fixed. `open` does not touch the disk. `ensure` creates the root before the disk space check. `disk_usage` returns 0 for a missing root. The text of decision rule 2 does not need a change, because it says to create the root first. Tests `open_leaves_root_absent_when_directory_missing`, `ensure_creates_root_when_directory_missing` and `disk_usage_is_zero_when_root_missing`. `open` returns `Self` (difference 9) |
 | 12. Retry budget | Fixed by decision of the project owner. The count of attempts starts again when the `.part` file grew during an attempt. A download that never gains bytes still fails after four attempts. The plan text of `ensure` step 5.3 and AC-04-08 says "four consecutive attempts without progress". Test `ensure_completes_when_connection_breaks_more_often_than_attempt_limit` breaks the connection five times, and the download completes. The test fails without the change |
 | 13. Empty `ANTENNA_MODEL_DIR` | Recorded. An empty `ANTENNA_MODEL_DIR` counts as not set, and `open_default` uses the platform directory. Unit test `default_root_uses_data_dir_when_env_empty` covers it. The documentation of `open_default` says so |
 

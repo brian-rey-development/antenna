@@ -26,7 +26,7 @@ fn open_leaves_root_absent_when_directory_missing() {
     let parent = tempfile::tempdir().unwrap();
     let root = parent.path().join("models").join("nested");
 
-    let store = ModelStore::open(&root, Source::Directory(parent.path().to_owned())).unwrap();
+    let store = ModelStore::open(&root, Source::Directory(parent.path().to_owned()));
 
     assert!(!root.exists());
     assert_eq!(store.root(), root);
@@ -36,7 +36,7 @@ fn open_leaves_root_absent_when_directory_missing() {
 fn disk_usage_is_zero_when_root_missing() {
     let parent = tempfile::tempdir().unwrap();
     let root = parent.path().join("models");
-    let store = ModelStore::open(root, Source::Directory(parent.path().to_owned())).unwrap();
+    let store = ModelStore::open(root, Source::Directory(parent.path().to_owned()));
 
     let usage = store.disk_usage();
 

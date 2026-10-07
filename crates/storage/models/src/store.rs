@@ -37,24 +37,19 @@ impl ModelStore {
     /// directory.
     pub fn open_default() -> Result<Self, ModelError> {
         let root = default_root(env::var_os(MODEL_DIR_ENV), project_dirs())?;
-        Self::open(root, Source::Hub { endpoint: None })
+        Ok(Self::open(root, Source::Hub { endpoint: None }))
     }
 
     /// Opens the model store in a root directory.
     ///
     /// The function does not touch the disk. [`ModelStore::ensure`] creates the root directory
     /// when a download needs it.
-    ///
-    /// # Errors
-    ///
-    /// This function returns no error. The result type keeps the signature of the stage plan, so a
-    /// later check of the root does not change the callers.
-    pub fn open(root: impl Into<PathBuf>, source: Source) -> Result<Self, ModelError> {
-        Ok(Self {
+    pub fn open(root: impl Into<PathBuf>, source: Source) -> Self {
+        Self {
             root: root.into(),
             source,
             retry_delays: RETRY_DELAYS,
-        })
+        }
     }
 
     /// Returns the root directory of the store.
