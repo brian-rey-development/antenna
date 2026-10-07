@@ -1,0 +1,25 @@
+[package]
+name = "antenna-models"
+version = "0.1.0"
+description = "Model store of Antenna: download, hash check and removal of model files"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+antenna-core.workspace = true
+directories.workspace = true
+fs4 = { workspace = true, features = ["sync"] }
+sha2.workspace = true
+thiserror = { workspace = true, features = ["std"] }
+ureq.workspace = true
+
+[dev-dependencies]
+flume.workspace = true
+tempfile.workspace = true
+tiny_http.workspace = true
+
+[lints]
+workspace = true

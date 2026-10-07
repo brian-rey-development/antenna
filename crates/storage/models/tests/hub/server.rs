@@ -1,0 +1,248 @@
+use std::collections::BTreeMap;
+use std::io::{BufRead, BufReader, Cursor, Write};
+use std::net::{TcpListener, TcpStream};
+use std::sync::Arc;
+use std::thread::{self, JoinHandle};
+
+use antenna_core::Artifact;
+use tiny_http::{Header, Response, Server, StatusCode};
+
+use crate::support::{REPO, REVISION};
+
+const OK: u16 = 200;
+const PARTIAL_CONTENT: u16 = 206;
+const FOUND: u16 = 302;
+const NOT_FOUND: u16 = 404;
+const SERVICE_UNAVAILABLE: u16 = 503;
+const TEMPORARY_REDIRECT: u16 = 307;
+
+pub(crate) fn hub_path(artifact: &Artifact) -> String {
+    format!("/{REPO}/resolve/{REVISION}/{}", artifact.path)
+}
+
+/// How a route answers a request.
+pub(crate) enum Behavior {
+    Serve,
+    FailFirst(u32),
+    Missing,
+    IgnoreRange,
+    Redirect(String),
+    /// Closes the connection after this many body bytes, on the first request only.
+    CloseAfter(usize),
+}
+
+pub(crate) struct Route {
+    pub(crate) path: String,
+    pub(crate) body: Vec<u8>,
+    pub(crate) behavior: Behavior,
+}
+
+pub(crate) struct Request {
+    pub(crate) path: String,
+    pub(crate) range: Option<String>,
+    pub(crate) user_agent: Option<String>,
+}
+
+pub(crate) struct TestServer {
+    endpoint: String,
+    requests: flume::Receiver<Request>,
+    server: Arc<Server>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl TestServer {
+    pub(crate) fn start(routes: Vec<Route>) -> Self {
+        let server = Arc::new(Server::http("127.0.0.1:0").unwrap());
+        let endpoint = format!("http://{}", server.server_addr().to_ip().unwrap());
+        let (sender, requests) = flume::unbounded();
+        let state = State::new(routes, endpoint.clone(), sender);
+        let listener = Arc::clone(&server);
+        let thread = thread::Builder::new()
+            .name("antenna-test-server".to_owned())
+            .spawn(move || state.serve(&listener))
+            .unwrap();
+        Self {
+            endpoint,
+            requests,
+            server,
+            thread: Some(thread),
+        }
+    }
+
+    pub(crate) fn endpoint(&self) -> &str {
+        &self.endpoint
+    }
+
+    pub(crate) fn requests(&self, path: &str) -> Vec<Request> {
+        self.requests
+            .try_iter()
+            .filter(|request| request.path == path)
+            .collect()
+    }
+}
+
+impl Drop for TestServer {
+    fn drop(&mut self) {
+        self.server.unblock();
+        if let Some(thread) = self.thread.take() {
+            thread.join().unwrap();
+        }
+    }
+}
+
+struct State {
+    bodies: BTreeMap<String, Vec<u8>>,
+    behaviors: BTreeMap<String, Behavior>,
+    endpoint: String,
+    log: flume::Sender<Request>,
+}
+
+impl State {
+    fn new(routes: Vec<Route>, endpoint: String, log: flume::Sender<Request>) -> Self {
+        let mut bodies = BTreeMap::new();
+        let mut behaviors = BTreeMap::new();
+        for route in routes {
+            bodies.insert(route.path.clone(), route.body);
+            behaviors.insert(route.path, route.behavior);
+        }
+        Self {
+            bodies,
+            behaviors,
+            endpoint,
+            log,
+        }
+    }
+
+    fn serve(mut self, server: &Server) {
+        for request in server.incoming_requests() {
+            self.answer(request);
+        }
+    }
+
+    fn answer(&mut self, request: tiny_http::Request) {
+        let path = request.url().to_owned();
+        let range = header(&request, "Range");
+        let entry = Request {
+            path: path.clone(),
+            range: range.clone(),
+            user_agent: header(&request, "User-Agent"),
+        };
+        self.log.send(entry).unwrap();
+        let response = self.reply(&path, range.as_deref());
+        request.respond(response).unwrap();
+    }
+
+    fn reply(&mut self, path: &str, range: Option<&str>) -> Reply {
+        let Some(body) = self.bodies.get(path) else {
+            return empty(NOT_FOUND);
+        };
+        let behavior = self.behaviors.get_mut(path).unwrap();
+        match behavior {
+            Behavior::Serve | Behavior::FailFirst(0) => ranged(body, range),
+            Behavior::IgnoreRange => Response::from_data(body.clone()).with_status_code(OK),
+            Behavior::Missing => empty(NOT_FOUND),
+            Behavior::FailFirst(remaining) => {
+                *remaining -= 1;
+                empty(SERVICE_UNAVAILABLE)
+            }
+            Behavior::Redirect(target) => redirect(FOUND, &format!("{}{target}", self.endpoint)),
+            Behavior::CloseAfter(count) => {
+                let location = break_connection(path, body.clone(), *count, self.log.clone());
+                *behavior = Behavior::Serve;
+                redirect(TEMPORARY_REDIRECT, &location)
+            }
+        }
+    }
+}
+
+fn header(request: &tiny_http::Request, name: &'static str) -> Option<String> {
+    request
+        .headers()
+        .iter()
+        .find(|header| header.field.equiv(name))
+        .map(|header| header.value.to_string())
+}
+
+type Reply = Response<Cursor<Vec<u8>>>;
+
+fn empty(status: u16) -> Reply {
+    Response::from_data(Vec::new()).with_status_code(status)
+}
+
+fn redirect(status: u16, location: &str) -> Reply {
+    let location = Header::from_bytes("Location", location).unwrap();
+    empty(status).with_header(location)
+}
+
+fn parse_range(range: &str) -> (usize, usize) {
+    let (start, end) = range
+        .strip_prefix("bytes=")
+        .unwrap()
+        .split_once('-')
+        .unwrap();
+    (start.parse().unwrap(), end.parse().unwrap())
+}
+
+fn ranged(body: &[u8], range: Option<&str>) -> Reply {
+    let Some(range) = range else {
+        return Response::from_data(body.to_vec()).with_status_code(OK);
+    };
+    let (start, end) = parse_range(range);
+    let content_range = format!("bytes {start}-{end}/{}", body.len());
+    Response::from_data(body[start..=end].to_vec())
+        .with_status_code(StatusCode(PARTIAL_CONTENT))
+        .with_header(Header::from_bytes("Content-Range", content_range).unwrap())
+}
+
+/// Starts a one-shot server that answers a request without a range. It declares the full
+/// `Content-Length`, sends only `count` bytes and closes the connection. `tiny_http` cannot close a
+/// connection early. Returns the URL of the one-shot server.
+fn break_connection(
+    path: &str,
+    body: Vec<u8>,
+    count: usize,
+    log: flume::Sender<Request>,
+) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let location = format!("http://{}{path}", listener.local_addr().unwrap());
+    let path = path.to_owned();
+    thread::Builder::new()
+        .name("antenna-test-breaker".to_owned())
+        .spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            cut_response(stream, &path, &body, count, &log);
+        })
+        .unwrap();
+    location
+}
+
+fn cut_response(
+    mut stream: TcpStream,
+    path: &str,
+    body: &[u8],
+    count: usize,
+    log: &flume::Sender<Request>,
+) {
+    let mut reader = BufReader::new(stream.try_clone().unwrap());
+    let mut range = None;
+    loop {
+        let mut line = String::new();
+        reader.read_line(&mut line).unwrap();
+        if line.trim().is_empty() {
+            break;
+        }
+        if let Some(value) = line.to_ascii_lowercase().strip_prefix("range:") {
+            range = Some(value.trim().to_owned());
+        }
+    }
+    let request = Request {
+        path: path.to_owned(),
+        range,
+        user_agent: None,
+    };
+    log.send(request).unwrap();
+    let head = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", body.len());
+    stream.write_all(head.as_bytes()).unwrap();
+    stream.write_all(&body[..count]).unwrap();
+    stream.flush().unwrap();
+}
