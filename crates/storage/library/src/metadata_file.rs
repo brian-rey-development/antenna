@@ -60,61 +60,8 @@ impl<'de> Deserialize<'de> for MetadataVersion {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use antenna_core::{ExportFormat, Language, Quality, TextFormat, TextHash};
-    use jiff::Timestamp;
-
     use super::*;
-    use crate::{DocumentId, ExportRecord, SegmentList, StoredVoice};
-
-    fn at(seconds: i64) -> Timestamp {
-        Timestamp::from_second(seconds).unwrap()
-    }
-
-    fn voice() -> StoredVoice {
-        StoredVoice {
-            id: "fake/en-alba".to_owned(),
-            quality: Quality::Max,
-        }
-    }
-
-    fn bare_metadata() -> DocumentMeta {
-        DocumentMeta {
-            id: DocumentId::new(at(1_000)),
-            title: "Notes".to_owned(),
-            format: TextFormat::Plain,
-            language: None,
-            voice: None,
-            created: at(1_000),
-            modified: at(1_000),
-            opened: at(1_000),
-            text_hash: TextHash::new([7; 32]),
-            segments: None,
-            last_export: None,
-        }
-    }
-
-    fn full_metadata() -> DocumentMeta {
-        let keys = ["a", "b"].map(|digit| digit.repeat(64).parse().unwrap());
-        DocumentMeta {
-            format: TextFormat::Markdown,
-            language: Some(Language::Es),
-            voice: Some(voice()),
-            segments: Some(SegmentList {
-                text_hash: TextHash::new([7; 32]),
-                voice: voice(),
-                keys: keys.to_vec(),
-                is_complete: true,
-                duration: Duration::new(61, 500),
-            }),
-            last_export: Some(ExportRecord {
-                format: ExportFormat::Ogg,
-                at: at(2_000),
-            }),
-            ..bare_metadata()
-        }
-    }
+    use crate::fixtures::{bare_metadata, full_metadata};
 
     fn rewrite(directory: &Path, from: &str, to: &str) {
         let path = paths::metadata_path(directory);

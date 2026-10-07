@@ -7,6 +7,8 @@ mod atomic;
 mod document;
 mod edits;
 mod error;
+#[cfg(test)]
+mod fixtures;
 mod gc;
 mod index;
 mod library;

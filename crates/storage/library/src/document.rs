@@ -147,10 +147,7 @@ mod tests {
     use antenna_core::EngineId;
 
     use super::*;
-
-    fn at(seconds: i64) -> Timestamp {
-        Timestamp::from_second(seconds).unwrap()
-    }
+    use crate::fixtures::at;
 
     #[test]
     fn document_ids_sort_by_creation_time() {

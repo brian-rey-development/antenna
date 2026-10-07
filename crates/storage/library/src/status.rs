@@ -76,46 +76,12 @@ fn has_current_audio(metadata: &DocumentMeta) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use antenna_core::{Quality, TextFormat, TextHash};
-    use jiff::Timestamp;
+    use antenna_core::{Quality, TextHash};
 
     use super::*;
-    use crate::{DocumentId, ExportRecord, SegmentList, StoredVoice};
-
-    fn at(seconds: i64) -> Timestamp {
-        Timestamp::from_second(seconds).unwrap()
-    }
-
-    fn voice(quality: Quality) -> StoredVoice {
-        StoredVoice {
-            id: "fake/en-alba".to_owned(),
-            quality,
-        }
-    }
-
-    fn ready_metadata() -> DocumentMeta {
-        DocumentMeta {
-            id: DocumentId::new(at(100)),
-            title: "Notes".to_owned(),
-            format: TextFormat::Plain,
-            language: None,
-            voice: Some(voice(Quality::Balanced)),
-            created: at(100),
-            modified: at(100),
-            opened: at(100),
-            text_hash: TextHash::new([1; 32]),
-            segments: Some(SegmentList {
-                text_hash: TextHash::new([1; 32]),
-                voice: voice(Quality::Balanced),
-                keys: Vec::new(),
-                is_complete: true,
-                duration: Duration::from_secs(5),
-            }),
-            last_export: None,
-        }
-    }
+    use crate::ExportRecord;
+    use crate::SegmentList;
+    use crate::fixtures::{at, ready_metadata, voice};
 
     fn with_segments(change: impl FnOnce(&mut SegmentList)) -> DocumentMeta {
         let mut metadata = ready_metadata();
