@@ -1,0 +1,12 @@
+1	Dr. Weber kam gestern.
+1	Prof. Lange spricht heute.
+1	Hr. Müller wartet draußen.
+1	Fr. Schmidt antwortet gleich.
+1	Das Haus hat die Nr. 5 gekauft.
+1	Das Gerät kostet ca. 5 Euro.
+1	Er kommt bzw. sie geht morgen.
+1	Das war z.B. ein Fehler.
+1	Sie traf Dr. Weber und Prof. Lange.
+2	Dr. Weber kam gestern. Prof. Lange spricht heute.
+2	Hr. Müller öffnet die Tür. Fr. Schmidt tritt ein.
+3	Dr. Weber kam an. Hr. Müller wartet. Fr. Schmidt antwortet.

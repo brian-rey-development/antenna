@@ -1,0 +1,28 @@
+[package]
+name = "antenna-text"
+version = "0.1.0"
+description = "Markdown to prose, speakable segments and language identification for Antenna"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+antenna-core.workspace = true
+pulldown-cmark.workspace = true
+srx = { workspace = true, features = ["from_xml"] }
+thiserror = { workspace = true, features = ["std"] }
+whatlang.workspace = true
+
+[dev-dependencies]
+divan.workspace = true
+insta.workspace = true
+proptest = { workspace = true, features = ["std"] }
+
+[[bench]]
+name = "prepare"
+harness = false
+
+[lints]
+workspace = true

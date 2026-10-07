@@ -1,0 +1,12 @@
+1	O Sr. Silva chegou.
+1	A Sra. Costa falou.
+1	A Srta. Lima entrou.
+1	O Dr. Pereira voltou.
+1	A Dra. Alves saiu.
+1	O Prof. Santos ensina.
+1	O Eng. Lopes assinou.
+1	O Gen. Rocha avançou.
+1	A Av. Central está fechada.
+2	O Sr. Silva chegou. A Sra. Costa falou.
+2	O Dr. Pereira abriu a porta. A Dra. Alves entrou.
+3	O Prof. Santos entrou. A Dra. Alves saiu. O Sr. Silva ficou.

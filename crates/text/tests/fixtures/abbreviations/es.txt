@@ -1,0 +1,12 @@
+1	El Sr. García llegó.
+1	La Sra. López habló.
+1	La Srta. Mora entró.
+1	El Dr. Pérez volvió.
+1	La Dra. Ruiz salió.
+1	El Prof. Díaz enseña.
+1	El Ing. Soto firmó.
+1	El Lic. Vega llamó.
+1	La Av. Central está cerrada.
+1	La Sta. Cruz vive aquí.
+2	El Sr. García llegó. La Sra. López habló.
+3	El Dr. Pérez abrió la puerta. La Dra. Ruiz entró. El Prof. Díaz salió.

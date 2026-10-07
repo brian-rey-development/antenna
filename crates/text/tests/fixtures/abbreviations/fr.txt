@@ -1,0 +1,11 @@
+1	M. Dupont est venu.
+1	Mlle. Roux a répondu.
+1	Le Dr. Petit arrive demain.
+1	Le Pr. Blanc enseigne ici.
+1	MM. Durand et Martin sont partis.
+1	M. Roche habite à Paris.
+2	M. Roche parle. Mlle. Fabre écoute.
+2	Le Dr. Petit ouvre la porte. Le Pr. Blanc entre.
+2	M. Dupont est venu. MM. Durand et Martin sont partis.
+3	M. Roche parle. Mlle. Fabre écoute. Le Dr. Petit sort.
+3	Le Pr. Blanc entre. M. Dupont salue. Mlle. Roux répond.

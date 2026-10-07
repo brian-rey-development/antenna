@@ -1,0 +1,10 @@
+1	Il Sig. Rossi è arrivato.
+1	Il Dott. Bianchi ha chiamato.
+1	Il Prof. Conti insegna qui.
+1	L'Ing. Neri ha firmato.
+1	L'Avv. Greco parla domani.
+1	Il Dr. Riva parte presto.
+2	Il Sig. Rossi è arrivato. Il Dott. Bianchi ha chiamato.
+2	Il Prof. Conti entra. L'Ing. Neri esce.
+2	L'Avv. Greco apre la porta. Il Dr. Riva entra.
+3	Il Sig. Rossi entra. Il Prof. Conti parla. Il Dott. Bianchi esce.

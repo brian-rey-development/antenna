@@ -1,0 +1,12 @@
+1	Mr. Smith arrived.
+1	Mrs. Jones waved.
+1	Ms. Rivera spoke.
+1	Dr. Brown called yesterday.
+1	Prof. Green teaches physics.
+1	Capt. Ahab sailed north.
+1	Gen. Lee rode out at dawn.
+1	Sgt. Pepper played the drums.
+1	Lt. Dan met Col. Smith.
+2	Gov. Reed spoke first. Rev. Hall spoke second.
+2	Ms. Rivera spoke. Mr. Clark replied.
+3	Dr. Adams opened the door. Mr. Young came in. Mrs. Moss left.
