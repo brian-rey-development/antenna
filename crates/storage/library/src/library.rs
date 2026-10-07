@@ -151,7 +151,8 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns [`LibraryError::Io`] if a directory cannot be read or a file cannot be deleted.
+    /// Returns the first [`LibraryError::Io`] of a directory that cannot be read or of a file
+    /// that cannot be deleted. The function still handles the other files.
     pub fn collect_garbage(&self, now: SystemTime) -> Result<GcReport, LibraryError> {
         let directories = [
             paths::library_dir(&self.root),

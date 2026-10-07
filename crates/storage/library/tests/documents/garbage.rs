@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use antenna_core::{Quality, SampleRate};
-use antenna_library::{DocumentId, GcReport, Library, SegmentKey, text_hash};
+use antenna_library::{DocumentId, GcReport, Library, LibraryError, SegmentKey, text_hash};
 use tempfile::TempDir;
 
 use super::support::{at, document_dir, key, library, plain, voice};
@@ -133,4 +133,24 @@ fn gc_keeps_segment_when_modified_after_now() {
     library.collect_garbage(now()).unwrap();
 
     assert!(segment.is_file());
+}
+
+#[cfg(unix)]
+#[test]
+fn gc_continues_and_reports_first_error_when_directory_unreadable() {
+    use std::fs::Permissions;
+    use std::os::unix::fs::PermissionsExt;
+
+    let (root, library, _id) = library_with_document();
+    let old_segment = store_segment(&library, key('1'), HOUR * 2);
+    let old_temp = aged_file(&root.path().join("library"), "text.txt.tmp-1-0", HOUR * 2);
+    let locked = root.path().join("segments").join("ff");
+    fs::create_dir(&locked).unwrap();
+    fs::set_permissions(&locked, Permissions::from_mode(0o000)).unwrap();
+
+    let result = library.collect_garbage(now());
+    fs::set_permissions(&locked, Permissions::from_mode(0o755)).unwrap();
+
+    assert!(matches!(&result, Err(LibraryError::Io { path, .. }) if *path == locked));
+    assert!(!old_segment.exists() && !old_temp.exists());
 }
