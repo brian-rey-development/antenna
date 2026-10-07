@@ -1,11 +1,11 @@
 use antenna_core::{Document, Language, TextFormat};
 use antenna_text::identify_language;
 
-use crate::support::{FIXTURES, fixture};
+use crate::support::{fixture, fixtures};
 
 #[test]
 fn identify_language_finds_language_when_fixture() {
-    for (language, text) in FIXTURES {
+    for (language, text) in fixtures() {
         let document = Document::new(text, TextFormat::Markdown).unwrap();
 
         assert_eq!(identify_language(&document), Some(language));

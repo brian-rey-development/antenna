@@ -4,8 +4,8 @@ use antenna_core::{Document, Language, Segment, TextFormat};
 use antenna_text::{SegmentLimits, prepare};
 
 pub(crate) const MAX_CHARS: usize = 400;
-pub(crate) const MARKDOWN: &str = include_str!("../fixtures/markdown.md");
-pub(crate) const FIXTURES: [(Language, &str); 6] = [
+const MARKDOWN: &str = include_str!("../fixtures/markdown.md");
+const FIXTURES: [(Language, &str); 6] = [
     (Language::En, include_str!("../fixtures/en.md")),
     (Language::Es, include_str!("../fixtures/es.md")),
     (Language::Pt, include_str!("../fixtures/pt.md")),
@@ -40,12 +40,31 @@ pub(crate) const ABBREVIATIONS: [(Language, &str); 6] = [
     ),
 ];
 
-pub(crate) fn fixture(language: Language) -> &'static str {
+/// A checkout on Windows can change the line ends of a fixture, and the source ranges of the
+/// snapshots count bytes.
+fn line_feeds(text: &str) -> String {
+    text.replace("\r\n", "\n")
+}
+
+pub(crate) fn fixtures() -> Vec<(Language, String)> {
     FIXTURES
         .iter()
-        .find(|(candidate, _)| *candidate == language)
-        .unwrap()
-        .1
+        .map(|(language, text)| (*language, line_feeds(text)))
+        .collect()
+}
+
+pub(crate) fn fixture(language: Language) -> String {
+    line_feeds(
+        FIXTURES
+            .iter()
+            .find(|(candidate, _)| *candidate == language)
+            .unwrap()
+            .1,
+    )
+}
+
+pub(crate) fn markdown() -> String {
+    line_feeds(MARKDOWN)
 }
 
 pub(crate) fn limits() -> SegmentLimits {
