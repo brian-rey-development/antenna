@@ -8,6 +8,9 @@ use crate::server::{Behavior, Route, hub_path};
 use crate::setup::{FILE_BYTES, NOT_CANCELLED, RESUME_BYTES, Setup, resume_range, route};
 use crate::support::{pattern, range, whole};
 
+const DROP_BYTES: usize = 50_000;
+const DROP_COUNT: u32 = 5;
+
 #[test]
 fn ensure_sends_antenna_user_agent_when_downloading() {
     let bytes = pattern(FILE_BYTES);
@@ -39,7 +42,10 @@ fn ensure_resumes_when_partial_file_exists() {
 fn ensure_resumes_when_connection_breaks() {
     let bytes = pattern(FILE_BYTES);
     let artifact = whole("weights", &bytes);
-    let behavior = Behavior::CloseAfter(RESUME_BYTES);
+    let behavior = Behavior::CloseAfter {
+        bytes: RESUME_BYTES,
+        times: 1,
+    };
     let setup = Setup::new(vec![route(artifact, &bytes, behavior)]);
 
     let installed = setup.install(artifact);
@@ -50,10 +56,30 @@ fn ensure_resumes_when_connection_breaks() {
 }
 
 #[test]
+fn ensure_completes_when_connection_breaks_more_often_than_attempt_limit() {
+    let bytes = pattern(FILE_BYTES);
+    let artifact = whole("weights", &bytes);
+    let behavior = Behavior::CloseAfter {
+        bytes: DROP_BYTES,
+        times: DROP_COUNT,
+    };
+    let setup = Setup::new(vec![route(artifact, &bytes, behavior)]);
+
+    let installed = setup.install(artifact);
+
+    assert_eq!(installed, bytes);
+    let last = setup.ranges(&hub_path(artifact)).pop().unwrap();
+    assert_eq!(last, Some(resume_range(DROP_BYTES * DROP_COUNT as usize)));
+}
+
+#[test]
 fn ensure_reports_increasing_progress_when_connection_breaks() {
     let bytes = pattern(FILE_BYTES);
     let artifact = whole("weights", &bytes);
-    let behavior = Behavior::CloseAfter(RESUME_BYTES);
+    let behavior = Behavior::CloseAfter {
+        bytes: RESUME_BYTES,
+        times: 1,
+    };
     let setup = Setup::new(vec![route(artifact, &bytes, behavior)]);
     let (sender, receiver) = flume::unbounded();
     let record = |progress| sender.send(progress).unwrap();

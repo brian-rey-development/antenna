@@ -81,25 +81,31 @@ impl<'a, F: Fetch> Installer<'a, F> {
         kept_bytes: u64,
     ) -> Result<(), ModelError> {
         retry::check(self.cancel)?;
-        let mut delays = self.retry_delays.into_iter();
-        let mut attempts = 0;
+        let mut failures = 0_u32;
         loop {
-            attempts += 1;
+            let before = paths.partial_len();
             let source = match self.fetch_once(artifact, paths, kept_bytes) {
                 Ok(()) => return Ok(()),
                 Err(FetchError::Cancelled) => return Err(ModelError::Cancelled),
                 Err(FetchError::Permanent(error)) => return Err(error),
                 Err(FetchError::Transient(source)) => source,
             };
-            let Some(delay) = delays.next() else {
+            // An attempt that grew the partial file starts the count again. It waits for the first
+            // delay, as the first failure of a new count does.
+            failures = if paths.partial_len() > before {
+                0
+            } else {
+                failures + 1
+            };
+            let Some(delay) = self.retry_delays.get(failures.saturating_sub(1) as usize) else {
                 let artifact = artifact.key;
                 return Err(ModelError::Network {
                     artifact,
-                    attempts,
+                    attempts: failures,
                     source,
                 });
             };
-            retry::wait(delay, self.cancel)?;
+            retry::wait(*delay, self.cancel)?;
         }
     }
 

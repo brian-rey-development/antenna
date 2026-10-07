@@ -5,6 +5,8 @@
 mod support;
 
 #[cfg(test)]
+mod breaker;
+#[cfg(test)]
 mod failure;
 #[cfg(test)]
 mod resume;

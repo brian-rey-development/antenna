@@ -178,7 +178,7 @@ const READ_TIMEOUT: Duration = Duration::from_secs(30);
 5. Do these steps for each missing artifact, in sequence.
    1. Take an exclusive lock on its `.lock` file with `fs4::FileExt::try_lock_exclusive`. If another process or thread holds the lock, wait `CANCEL_POLL` with the cancellable wait of `retry.rs` and try again. If `cancel` is `true` during this wait, return `ModelError::Cancelled`. After the lock, check again if the artifact is installed. If it is installed, release the lock and continue with the next artifact.
    2. Fetch the bytes into the `.part` file. The fetch continues from the current length of the `.part` file.
-   3. If the fetch fails with a transient error, wait for the next delay of the retry delays, then try again. After four attempts (the first attempt and three retries), return `ModelError::Network` with `attempts: 4`.
+   3. If the fetch fails with a transient error, wait for the next delay of the retry delays, then try again. If the `.part` file grew during the attempt, the count of attempts starts again. After four consecutive attempts without progress (the first attempt and three retries), return `ModelError::Network` with `attempts: 4`.
    4. Make sure that the size is equal to `Extent::bytes()`. If not, delete the `.part` file and return `ModelError::Size`.
    5. Calculate the SHA-256 with a buffer of `HASH_BUFFER_BYTES`. If it is different from `Artifact::sha256`, delete the `.part` file and return `ModelError::Hash`.
    6. Rename the `.part` file to its final path. Write the `.verified` record. Release the lock.
@@ -266,7 +266,7 @@ Write `docs/adr/0008-byte-range-artifacts.md`. It records why `Artifact` has `Ex
 | AC-04-05 | A size mismatch deletes the file and returns `ModelError::Size` | Test `ensure_fails_and_deletes_when_size_differs` |
 | AC-04-06 | An installed file with a changed size is not installed any more, and `ensure` fetches it again | Test `ensure_fetches_again_when_installed_file_truncated` |
 | AC-04-07 | Not enough disk space stops `ensure` before any fetch | Test `ensure_fails_when_disk_space_insufficient` with an artifact of `u64::MAX / 2` bytes |
-| AC-04-08 | Transient failures retry three times, then return `ModelError::Network` with `attempts: 4` | Tests `ensure_succeeds_when_server_fails_three_times` and `ensure_fails_when_server_fails_four_times`, with `with_retry_delays([Duration::ZERO; 3])` |
+| AC-04-08 | Transient failures without progress retry three times, then return `ModelError::Network` with `attempts: 4` | Tests `ensure_succeeds_when_server_fails_three_times` and `ensure_fails_when_server_fails_four_times`, with `with_retry_delays([Duration::ZERO; 3])` |
 | AC-04-09 | A permanent failure does not retry | Test `ensure_does_not_retry_when_not_found`. The server counts 1 request |
 | AC-04-10 | Cancellation in the middle of a file stops after one more block or less and keeps the `.part` file | Test `ensure_stops_after_one_block_when_cancelled` |
 | AC-04-11 | A download continues from the `.part` file with a `Range` header | Test `ensure_resumes_when_partial_file_exists`. The server receives `Range: bytes=<have>-<end>` |

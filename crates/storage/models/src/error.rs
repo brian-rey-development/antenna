@@ -38,12 +38,12 @@ pub enum ModelError {
         /// The size of the downloaded file.
         actual_bytes: u64,
     },
-    /// The download failed on each attempt.
-    #[error("the download of {artifact} failed after {attempts} attempts")]
+    /// The download failed and no retry is left, or the error is not transient.
+    #[error("the download of {artifact} failed, attempt count {attempts}")]
     Network {
         /// The key of the artifact.
         artifact: &'static str,
-        /// The number of attempts.
+        /// The number of consecutive attempts without progress.
         attempts: u32,
         /// The error of the last attempt.
         #[source]
@@ -96,5 +96,24 @@ impl ModelError {
             path: path.to_owned(),
             source,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_message_names_attempt_count_when_count_is_one() {
+        let error = ModelError::Network {
+            artifact: "weights",
+            attempts: 1,
+            source: ureq::Error::ConnectionFailed,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "the download of weights failed, attempt count 1"
+        );
     }
 }
