@@ -58,11 +58,23 @@ impl SegmentFile {
     }
 }
 
+pub(crate) fn read_segment(path: &Path) -> Result<Vec<f32>, AudioError> {
+    SegmentFile::open(path)?.into_samples()
+}
+
 #[cfg(test)]
 mod tests {
     use hound::{WavSpec, WavWriter};
 
     use super::*;
+
+    fn write(path: &Path, spec: WavSpec, samples: &[i16]) {
+        let mut writer = WavWriter::create(path, spec).unwrap();
+        for sample in samples {
+            writer.write_sample(*sample).unwrap();
+        }
+        writer.finalize().unwrap();
+    }
 
     fn spec(channels: u16, bits_per_sample: u16) -> WavSpec {
         WavSpec {
@@ -73,28 +85,32 @@ mod tests {
         }
     }
 
-    fn file(spec: WavSpec) -> (tempfile::TempDir, PathBuf) {
+    fn file(spec: WavSpec, samples: &[i16]) -> (tempfile::TempDir, PathBuf) {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("a.wav");
-        let mut writer = WavWriter::create(&path, spec).unwrap();
-        writer.write_sample(1_i16).unwrap();
-        writer.write_sample(1_i16).unwrap();
-        writer.finalize().unwrap();
+        write(&path, spec, samples);
         (directory, path)
     }
 
     #[test]
-    fn segment_file_reads_samples_when_opened() {
-        let (_directory, path) = file(spec(1, 16));
+    fn read_segment_scales_when_sample_is_max() {
+        let (_directory, path) = file(spec(1, 16), &[i16::MAX, 0, -i16::MAX]);
 
-        let samples = SegmentFile::open(&path).unwrap().into_samples().unwrap();
+        let samples = read_segment(&path).unwrap();
 
-        assert_eq!(samples.len(), 2);
+        assert_eq!(samples, [1.0, 0.0, -1.0]);
+    }
+
+    #[test]
+    fn read_segment_returns_nothing_when_file_has_no_samples() {
+        let (_directory, path) = file(spec(1, 16), &[]);
+
+        assert!(read_segment(&path).unwrap().is_empty());
     }
 
     #[test]
     fn segment_file_reports_rate_when_opened() {
-        let (_directory, path) = file(spec(1, 16));
+        let (_directory, path) = file(spec(1, 16), &[1]);
 
         let segment = SegmentFile::open(&path).unwrap();
 
@@ -102,30 +118,46 @@ mod tests {
     }
 
     #[test]
-    fn segment_file_fails_when_file_is_stereo() {
-        let (_directory, path) = file(spec(2, 16));
+    fn read_segment_fails_when_file_is_stereo() {
+        let (_directory, path) = file(spec(2, 16), &[1, 2]);
 
-        let error = SegmentFile::open(&path).err().unwrap();
-
-        assert!(matches!(error, AudioError::UnsupportedSegment { .. }));
-    }
-
-    #[test]
-    fn segment_file_fails_when_file_is_24_bit() {
-        let (_directory, path) = file(spec(1, 24));
-
-        let error = SegmentFile::open(&path).err().unwrap();
+        let error = read_segment(&path).unwrap_err();
 
         assert!(matches!(error, AudioError::UnsupportedSegment { .. }));
     }
 
     #[test]
-    fn segment_file_fails_when_file_missing() {
+    fn read_segment_fails_when_file_is_24_bit() {
+        let (_directory, path) = file(spec(1, 24), &[1]);
+
+        let error = read_segment(&path).unwrap_err();
+
+        assert!(matches!(error, AudioError::UnsupportedSegment { .. }));
+    }
+
+    #[test]
+    fn read_segment_fails_when_file_is_float() {
+        let float = WavSpec {
+            sample_format: SampleFormat::Float,
+            bits_per_sample: 32,
+            ..spec(1, 32)
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("float.wav");
+        let mut writer = WavWriter::create(&path, float).unwrap();
+        writer.write_sample(0.5_f32).unwrap();
+        writer.finalize().unwrap();
+
+        let error = read_segment(&path).unwrap_err();
+
+        assert!(matches!(error, AudioError::UnsupportedSegment { .. }));
+    }
+
+    #[test]
+    fn read_segment_fails_when_file_missing() {
         let directory = tempfile::tempdir().unwrap();
 
-        let error = SegmentFile::open(&directory.path().join("missing.wav"))
-            .err()
-            .unwrap();
+        let error = read_segment(&directory.path().join("missing.wav")).unwrap_err();
 
         assert!(matches!(error, AudioError::ReadSegment { .. }));
     }

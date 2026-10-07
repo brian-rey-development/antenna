@@ -34,6 +34,13 @@ impl Conversion {
             Self::Resample(fft) => fft.finish(output),
         }
     }
+
+    pub(crate) fn reset(&mut self) {
+        match self {
+            Self::Direct => {}
+            Self::Resample(fft) => fft.reset(),
+        }
+    }
 }
 
 /// Converts mono samples from one sample rate to another.
@@ -197,5 +204,36 @@ mod tests {
     #[test]
     fn conversion_matches_one_shot_when_input_is_one_sample_pieces() {
         assert_eq!(convert_in_pieces(1), one_shot());
+    }
+
+    #[test]
+    fn conversion_restarts_when_reset() {
+        let input = sine(SINE_HZ, SampleRate::HZ_24000, 3_000, 0.5);
+        let expected = resample(&input, SampleRate::HZ_24000, SampleRate::HZ_48000);
+        let mut conversion = Conversion::new(SampleRate::HZ_24000, SampleRate::HZ_48000);
+        conversion.convert(&input[..1_500], &mut Vec::new());
+        conversion.reset();
+        let mut output = Vec::new();
+
+        conversion.convert(&input, &mut output);
+        conversion.finish(&mut output);
+
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn conversion_restarts_when_reset_after_finish() {
+        let input = sine(SINE_HZ, SampleRate::HZ_24000, 3_000, 0.5);
+        let expected = resample(&input, SampleRate::HZ_24000, SampleRate::HZ_48000);
+        let mut conversion = Conversion::new(SampleRate::HZ_24000, SampleRate::HZ_48000);
+        conversion.convert(&input, &mut Vec::new());
+        conversion.finish(&mut Vec::new());
+        conversion.reset();
+        let mut output = Vec::new();
+
+        conversion.convert(&input, &mut output);
+        conversion.finish(&mut output);
+
+        assert_eq!(output, expected);
     }
 }

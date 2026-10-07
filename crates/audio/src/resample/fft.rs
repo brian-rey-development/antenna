@@ -87,6 +87,14 @@ impl FftConversion {
         self.pending.clear();
     }
 
+    pub(super) fn reset(&mut self) {
+        self.fft.reset();
+        self.frames_to_skip = self.fft.output_delay();
+        self.pending.clear();
+        self.received = 0;
+        self.produced = 0;
+    }
+
     #[expect(
         clippy::expect_used,
         reason = "the buffers have the sizes that the resampler asks for, the only errors of these calls"

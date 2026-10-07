@@ -10,11 +10,16 @@ publish = false
 
 [dependencies]
 antenna-core.workspace = true
+cpal.workspace = true
+flume.workspace = true
 hound.workspace = true
+rtrb.workspace = true
 rubato = { workspace = true, features = ["fft_resampler"] }
 thiserror = { workspace = true, features = ["std"] }
+tracing.workspace = true
 
 [dev-dependencies]
+assert_no_alloc.workspace = true
 tempfile.workspace = true
 
 [lints]
