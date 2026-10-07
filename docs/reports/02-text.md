@@ -5,7 +5,7 @@
 | Stage file | `docs/plans/02-text.md` |
 | Date | 2026-10-06 |
 | Result | Complete, with one criterion pending (AC-02-18). No Blocked section |
-| CI | Run 37552665239 on commit `0b17331`, green on `macos-latest`, `ubuntu-latest` and `windows-latest`. The run before it failed on Windows, because a checkout changed the line ends of the fixtures. Commit `0b17331` fixes the tests |
+| CI | Run 37555521835 on commit `c412739`, green on `macos-latest`, `ubuntu-latest` and `windows-latest`. This run covers the fixes of the second review (section 2.4). The earlier run 37552665239 on commit `0b17331` was also green |
 
 ## 1. Acceptance criteria
 
