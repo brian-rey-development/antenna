@@ -25,8 +25,13 @@ tracing.workspace = true
 
 [dev-dependencies]
 assert_no_alloc.workspace = true
+divan.workspace = true
 symphonia = { workspace = true, features = ["id3v2", "mp3", "ogg"] }
 tempfile.workspace = true
+
+[[bench]]
+name = "export"
+harness = false
 
 [lints]
 workspace = true
