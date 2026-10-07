@@ -21,8 +21,13 @@ unicode-normalization = { workspace = true, features = ["std"] }
 uuid = { workspace = true, features = ["serde", "std", "v7"] }
 
 [dev-dependencies]
+divan.workspace = true
 proptest = { workspace = true, features = ["std"] }
 tempfile.workspace = true
+
+[[bench]]
+name = "library"
+harness = false
 
 [lints]
 workspace = true
