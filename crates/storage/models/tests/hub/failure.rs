@@ -101,7 +101,7 @@ fn ensure_does_not_retry_when_status_is_not_transient() {
 }
 
 #[test]
-fn ensure_returns_cancelled_when_cancelled_during_retry_wait() {
+fn ensure_returns_cancelled_without_request_when_cancel_is_set() {
     let (setup, artifact, _) = setup_with(Behavior::FailFirst(4));
     let cancel = AtomicBool::new(true);
 
@@ -110,7 +110,7 @@ fn ensure_returns_cancelled_when_cancelled_during_retry_wait() {
         .ensure([artifact], &|_: DownloadProgress| {}, &cancel);
 
     assert!(matches!(result, Err(ModelError::Cancelled)));
-    assert_eq!(setup.request_count(artifact), 1);
+    assert_eq!(setup.request_count(artifact), 0);
 }
 
 #[test]

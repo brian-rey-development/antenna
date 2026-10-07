@@ -144,6 +144,18 @@ fn ensure_stops_after_one_block_when_cancelled() {
 }
 
 #[test]
+fn ensure_returns_cancelled_without_partial_file_when_cancel_is_set() {
+    let fixture = Fixture::new();
+    let (artifact, _) = published(&fixture, "weights", FILE_BYTES);
+    let cancel = AtomicBool::new(true);
+
+    let result = fixture.store.ensure([artifact], &ignore_progress, &cancel);
+
+    assert!(matches!(result, Err(ModelError::Cancelled)));
+    assert!(!fixture.partial(artifact).exists());
+}
+
+#[test]
 fn ensure_returns_cancelled_when_waiting_on_lock() {
     let fixture = Fixture::new();
     let (artifact, _) = published(&fixture, "weights", FILE_BYTES);

@@ -59,7 +59,7 @@ impl<'a, F: Fetch> Installer<'a, F> {
         paths.reclaim_unverified(extent)?;
         if !paths.is_installed(extent) {
             self.fetch_with_retry(artifact, paths, kept_bytes)?;
-            verify::commit(artifact, paths)?;
+            verify::commit(artifact, paths, self.cancel)?;
         }
         self.reporter.complete_file(share);
         Ok(())
@@ -80,6 +80,7 @@ impl<'a, F: Fetch> Installer<'a, F> {
         paths: &ArtifactPaths,
         kept_bytes: u64,
     ) -> Result<(), ModelError> {
+        retry::check(self.cancel)?;
         let mut delays = self.retry_delays.into_iter();
         let mut attempts = 0;
         loop {

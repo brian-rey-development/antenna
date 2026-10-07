@@ -12,13 +12,19 @@ pub(crate) const RETRY_DELAYS: [Duration; RETRY_COUNT] = [
 ];
 pub(crate) const CANCEL_POLL: Duration = Duration::from_millis(100);
 
+/// Returns [`ModelError::Cancelled`] if the cancel flag is `true`.
+pub(crate) fn check(cancel: &AtomicBool) -> Result<(), ModelError> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err(ModelError::Cancelled);
+    }
+    Ok(())
+}
+
 /// Waits for the delay. Returns [`ModelError::Cancelled`] as soon as the cancel flag is `true`.
 pub(crate) fn wait(delay: Duration, cancel: &AtomicBool) -> Result<(), ModelError> {
     let end = Instant::now() + delay;
     loop {
-        if cancel.load(Ordering::Relaxed) {
-            return Err(ModelError::Cancelled);
-        }
+        check(cancel)?;
         let remaining = end.saturating_duration_since(Instant::now());
         if remaining.is_zero() {
             return Ok(());
