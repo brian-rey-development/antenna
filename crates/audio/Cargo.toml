@@ -11,15 +11,21 @@ publish = false
 [dependencies]
 antenna-core.workspace = true
 cpal.workspace = true
+ebur128.workspace = true
 flume.workspace = true
 hound.workspace = true
+mp3lame-encoder = { workspace = true, features = ["std"] }
+ogg.workspace = true
+opus.workspace = true
 rtrb.workspace = true
 rubato = { workspace = true, features = ["fft_resampler"] }
+strum = { workspace = true, features = ["derive", "std"] }
 thiserror = { workspace = true, features = ["std"] }
 tracing.workspace = true
 
 [dev-dependencies]
 assert_no_alloc.workspace = true
+symphonia = { workspace = true, features = ["id3v2", "mp3", "ogg"] }
 tempfile.workspace = true
 
 [lints]

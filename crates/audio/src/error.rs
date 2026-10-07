@@ -41,6 +41,16 @@ pub enum AudioError {
         #[source]
         source: hound::Error,
     },
+    /// A stored segment has another sample rate than the export expects.
+    #[error("the segment {path} has {actual} Hz, and the export expects {expected} Hz")]
+    RateMismatch {
+        /// The path of the segment file.
+        path: PathBuf,
+        /// The sample rate that the export expects, in hertz.
+        expected: u32,
+        /// The sample rate of the file, in hertz.
+        actual: u32,
+    },
     /// A stored segment is not 16-bit mono PCM.
     #[error("the segment {path} is not 16-bit mono PCM, and its format is {spec:?}")]
     UnsupportedSegment {
@@ -49,4 +59,40 @@ pub enum AudioError {
         /// The format of the file.
         spec: hound::WavSpec,
     },
+    /// A WAV export cannot be written.
+    #[error("cannot write the WAV file {path}")]
+    WriteWav {
+        /// The path of the export file.
+        path: PathBuf,
+        /// The error of the WAV writer.
+        #[source]
+        source: hound::Error,
+    },
+    /// An export file cannot be written.
+    #[error("cannot write the file {path}")]
+    Write {
+        /// The path of the file.
+        path: PathBuf,
+        /// The error of the file system.
+        #[source]
+        source: io::Error,
+    },
+    /// The MP3 encoder cannot be built.
+    #[error("cannot build the MP3 encoder")]
+    Mp3Build(#[source] mp3lame_encoder::BuildError),
+    /// The MP3 encoder failed.
+    #[error("the MP3 encoder failed")]
+    Mp3Encode(#[source] mp3lame_encoder::EncodeError),
+    /// The MP3 tag is not valid.
+    #[error("cannot set the MP3 tag, the error is {0:?}")]
+    Mp3Tag(mp3lame_encoder::Id3TagError),
+    /// The Opus encoder failed.
+    #[error("the Opus encoder failed")]
+    Opus(#[source] opus::Error),
+    /// The loudness meter failed.
+    #[error("the loudness meter failed")]
+    LoudnessMeter(#[source] ebur128::Error),
+    /// The caller cancelled the export.
+    #[error("the caller canceled the export")]
+    Cancelled,
 }

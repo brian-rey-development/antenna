@@ -62,6 +62,21 @@ pub(crate) fn read_segment(path: &Path) -> Result<Vec<f32>, AudioError> {
     SegmentFile::open(path)?.into_samples()
 }
 
+pub(crate) fn read_segment_at_rate(
+    path: &Path,
+    expected: SampleRate,
+) -> Result<Vec<f32>, AudioError> {
+    let file = SegmentFile::open(path)?;
+    if file.rate() != expected {
+        return Err(AudioError::RateMismatch {
+            path: path.to_owned(),
+            expected: expected.hz(),
+            actual: file.rate().hz(),
+        });
+    }
+    file.into_samples()
+}
+
 #[cfg(test)]
 mod tests {
     use hound::{WavSpec, WavWriter};
@@ -160,5 +175,29 @@ mod tests {
         let error = read_segment(&directory.path().join("missing.wav")).unwrap_err();
 
         assert!(matches!(error, AudioError::ReadSegment { .. }));
+    }
+
+    #[test]
+    fn read_segment_at_rate_fails_when_rate_differs() {
+        let (_directory, path) = file(spec(1, 16), &[1]);
+
+        let error = read_segment_at_rate(&path, SampleRate::HZ_48000).unwrap_err();
+
+        let AudioError::RateMismatch {
+            expected, actual, ..
+        } = error
+        else {
+            panic!("the error is {error:?}");
+        };
+        assert_eq!((expected, actual), (48_000, 24_000));
+    }
+
+    #[test]
+    fn read_segment_at_rate_reads_samples_when_rate_equal() {
+        let (_directory, path) = file(spec(1, 16), &[i16::MAX]);
+
+        let samples = read_segment_at_rate(&path, SampleRate::HZ_24000).unwrap();
+
+        assert_eq!(samples, [1.0]);
     }
 }
