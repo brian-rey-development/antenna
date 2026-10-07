@@ -1,7 +1,5 @@
 use std::fs;
-use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::time::SystemTime;
 
 use antenna_core::Document;
@@ -11,6 +9,7 @@ use crate::edits::parse_title;
 use crate::index::Index;
 use crate::metadata_file::{read_metadata, write_metadata};
 use crate::period::group_by_period;
+use crate::text_files::write_text;
 use crate::{
     DocumentId, DocumentMeta, DocumentSummary, Filter, GcReport, Group, LibraryError, SegmentStore,
     atomic, fold, gc, paths, text_hash,
@@ -18,8 +17,9 @@ use crate::{
 
 /// The documents of the user and their segment store, in one data directory.
 ///
-/// The library takes the time as a parameter. A function that changes a document reads it, changes
-/// it and writes it. Thus two such functions must not run at the same time on two threads.
+/// The library takes the time as a parameter. Many threads can change the same document at the
+/// same time. A change that finds newer data in the index runs again on the newer data, so no
+/// change is lost.
 #[derive(Debug)]
 pub struct Library {
     root: PathBuf,
@@ -108,75 +108,10 @@ impl Library {
         Ok(id)
     }
 
-    /// Loads the metadata and the text of a document.
-    ///
-    /// A crash between the two writes of `save_text` leaves a text file that is newer than the
-    /// metadata. Then the function stores the hash of the text, so the status is `Draft`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] if
-    /// the text file is absent, is not UTF-8 or is blank.
-    pub fn load(&self, id: DocumentId) -> Result<(Arc<DocumentMeta>, Document), LibraryError> {
-        let metadata = self.index.metadata(id)?;
-        let path = paths::text_path(&self.directory(id), metadata.format);
-        let text = fs::read_to_string(&path).map_err(LibraryError::io(&path))?;
-        let document = Document::new(text, metadata.format).map_err(|source| LibraryError::Io {
-            path,
-            source: io::Error::new(ErrorKind::InvalidData, source),
-        })?;
-        let hash = text_hash(&document);
-        if hash == metadata.text_hash {
-            return Ok((metadata, document));
-        }
-        let repaired = DocumentMeta {
-            text_hash: hash,
-            ..(*metadata).clone()
-        };
-        Ok((self.commit(repaired)?, document))
-    }
-
-    /// Saves the text of a document. If the text and the format did not change, the function does
-    /// nothing. The function writes the text file first and `document.toml` second.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
-    /// [`LibraryError::MetaWrite`] if the files cannot be written.
-    pub fn save_text(
-        &self,
-        id: DocumentId,
-        document: &Document,
-        now: Timestamp,
-    ) -> Result<(), LibraryError> {
-        let metadata = self.index.metadata(id)?;
-        let hash = text_hash(document);
-        if hash == metadata.text_hash {
-            return Ok(());
-        }
-        let directory = self.directory(id);
-        write_text(&directory, document)?;
-        let changed = DocumentMeta {
-            format: document.format(),
-            text_hash: hash,
-            modified: now,
-            ..(*metadata).clone()
-        };
-        self.commit(changed)?;
-        self.index.set_folded_text(id, fold(document.text()));
-        if metadata.format == document.format() {
-            return Ok(());
-        }
-        let old_path = paths::text_path(&directory, metadata.format);
-        match fs::remove_file(&old_path) {
-            Err(error) if error.kind() != ErrorKind::NotFound => {
-                Err(LibraryError::io(&old_path)(error))
-            }
-            Ok(()) | Err(_) => Ok(()),
-        }
-    }
-
     /// Deletes a document with its text. The segment files stay until garbage collection.
+    ///
+    /// A change that runs at the same time fails and does not make the directory again, because
+    /// each write needs the directory.
     ///
     /// # Errors
     ///
@@ -188,30 +123,6 @@ impl Library {
         fs::remove_dir_all(&directory).map_err(LibraryError::io(&directory))?;
         self.index.remove(id);
         Ok(())
-    }
-
-    /// Reads the text files and makes the search match the text of the documents. Until this
-    /// function returns, [`Library::list`] matches only the titles. The apps call it on a
-    /// background thread.
-    ///
-    /// # Errors
-    ///
-    /// Returns the first [`LibraryError::Io`] of a text file that cannot be read. The function
-    /// still indexes the other documents. The search matches only the title of the failed one.
-    pub fn build_search_index(&self) -> Result<(), LibraryError> {
-        let mut texts = Vec::new();
-        let mut first_error = None;
-        for metadata in self.index.unindexed() {
-            let path = paths::text_path(&self.directory(metadata.id), metadata.format);
-            match fs::read_to_string(&path) {
-                Ok(text) => texts.push((metadata.id, fold(&text))),
-                Err(source) => {
-                    first_error.get_or_insert(LibraryError::Io { path, source });
-                }
-            }
-        }
-        self.index.finish_text_index(texts);
-        first_error.map_or(Ok(()), Err)
     }
 
     /// Lists the documents that have the filter status and match each term of the query. The
@@ -260,11 +171,6 @@ impl Library {
         write_text(&directory, document)?;
         write_metadata(&directory, metadata)
     }
-}
-
-fn write_text(directory: &Path, document: &Document) -> Result<(), LibraryError> {
-    let file_name = paths::text_file_name(document.format());
-    atomic::write(directory, file_name, document.text().as_bytes())
 }
 
 fn load_documents(library_dir: &Path, index: &Index) -> Result<Vec<PathBuf>, LibraryError> {

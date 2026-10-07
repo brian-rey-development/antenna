@@ -2,9 +2,12 @@ use std::fs::{self, File};
 use std::time::SystemTime;
 
 use antenna_core::Quality;
-use antenna_library::{Status, text_hash};
+use antenna_library::{Filter, Library, Status, text_hash};
 
-use super::support::{at, complete, document_dir, library, plain, reopen, status_of, voice};
+use super::support::{
+    at, complete, document_dir, library, now, plain, reopen, status_of, titles as listed_titles,
+    voice,
+};
 
 #[test]
 fn status_is_draft_when_meta_is_older_than_text() {
@@ -97,4 +100,24 @@ fn open_keeps_temp_files_when_stale() {
 
     assert!(old_temp.is_file());
     assert_eq!(reopened.count(), 1);
+}
+
+fn titles(library: &Library, query: &str) -> Vec<String> {
+    listed_titles(&library.list(Filter::All, query, &now()))
+}
+
+#[test]
+fn search_matches_new_text_when_load_repairs_metadata() {
+    let (root, library) = library();
+    let id = library
+        .create("Plan", &plain("Compra leche"), at(100))
+        .unwrap();
+    let reopened = reopen(&root);
+    reopened.build_search_index().unwrap();
+    fs::write(document_dir(&root, id).join("text.txt"), "Compra caf\u{e9}").unwrap();
+
+    reopened.load(id).unwrap();
+
+    assert_eq!(titles(&reopened, "cafe"), ["Plan"]);
+    assert_eq!(titles(&reopened, "leche"), Vec::<String>::new());
 }

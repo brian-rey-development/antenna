@@ -18,7 +18,10 @@ mod period;
 mod search;
 mod segments;
 mod status;
+mod swap;
+mod text_files;
 mod text_form;
+mod update;
 
 pub use document::{DocumentId, DocumentMeta, ExportRecord, SegmentList, StoredVoice, text_hash};
 pub use error::LibraryError;

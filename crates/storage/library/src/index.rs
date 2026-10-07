@@ -9,6 +9,7 @@ use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::search::{self, fold};
 use crate::status::status;
+use crate::swap::{Replacement, Swap};
 use crate::{DocumentId, DocumentMeta, DocumentSummary, Filter, LibraryError, SegmentKey};
 
 /// The number of documents that `recent` returns.
@@ -101,20 +102,29 @@ impl Index {
         Ok(Arc::clone(&entry.metadata))
     }
 
+    /// Replaces the entry only if it still holds `expected`, the handle that the writer read.
     pub(crate) fn replace(
         &self,
-        metadata: DocumentMeta,
-    ) -> Result<Arc<DocumentMeta>, LibraryError> {
-        let id = metadata.id;
-        let folded_title: Arc<str> = fold(&metadata.title).into();
+        expected: &Arc<DocumentMeta>,
+        replacement: Replacement,
+    ) -> Result<Swap, LibraryError> {
+        let id = replacement.metadata.id;
+        let folded_title: Arc<str> = fold(&replacement.metadata.title).into();
+        let metadata = Arc::new(replacement.metadata);
         let mut state = self.write();
         let entry = state
             .entries
             .get_mut(&id)
             .ok_or(LibraryError::NotFound(id))?;
-        entry.metadata = Arc::new(metadata);
+        if !Arc::ptr_eq(&entry.metadata, expected) {
+            return Ok(Swap::Stale);
+        }
+        entry.metadata = Arc::clone(&metadata);
         entry.folded_title = folded_title;
-        Ok(Arc::clone(&entry.metadata))
+        if replacement.folded_text.is_some() {
+            entry.folded_text = replacement.folded_text;
+        }
+        Ok(Swap::Done(metadata))
     }
 
     pub(crate) fn remove(&self, id: DocumentId) {
@@ -124,12 +134,6 @@ impl Index {
     pub(crate) fn set_progress(&self, id: DocumentId, progress: Option<(u32, u32)>) {
         if let Some(entry) = self.write().entries.get_mut(&id) {
             entry.progress = progress;
-        }
-    }
-
-    pub(crate) fn set_folded_text(&self, id: DocumentId, folded_text: String) {
-        if let Some(entry) = self.write().entries.get_mut(&id) {
-            entry.folded_text = Some(folded_text.into());
         }
     }
 
@@ -184,9 +188,90 @@ impl Index {
     }
 
     pub(crate) fn used_keys(&self) -> HashSet<SegmentKey> {
-        let state = self.read();
-        let metadatas = state.entries.values().map(|entry| &entry.metadata);
-        let lists = metadatas.filter_map(|metadata| metadata.segments.as_ref());
+        let handles: Vec<Arc<DocumentMeta>> = {
+            let state = self.read();
+            let entries = state.entries.values();
+            entries.map(|entry| Arc::clone(&entry.metadata)).collect()
+        };
+        let lists = handles
+            .iter()
+            .filter_map(|metadata| metadata.segments.as_ref());
         lists.flat_map(|list| list.keys.iter().copied()).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fixtures::{at, bare_metadata};
+
+    fn index_with_document() -> (Index, DocumentMeta) {
+        let index = Index::default();
+        let metadata = bare_metadata();
+        index.insert(metadata.clone(), Some("old".to_owned()));
+        (index, metadata)
+    }
+
+    fn opened(metadata: &DocumentMeta, seconds: i64) -> Replacement {
+        Replacement::for_metadata(DocumentMeta {
+            opened: at(seconds),
+            ..metadata.clone()
+        })
+    }
+
+    #[test]
+    fn replace_stores_metadata_when_expected_is_current() {
+        let (index, metadata) = index_with_document();
+        let current = index.metadata(metadata.id).unwrap();
+
+        let swap = index.replace(&current, opened(&metadata, 5)).unwrap();
+
+        assert!(matches!(swap, Swap::Done(stored) if stored.opened == at(5)));
+        assert_eq!(index.metadata(metadata.id).unwrap().opened, at(5));
+    }
+
+    #[test]
+    fn replace_is_stale_when_expected_was_replaced() {
+        let (index, metadata) = index_with_document();
+        let old = index.metadata(metadata.id).unwrap();
+        index.replace(&old, opened(&metadata, 5)).unwrap();
+
+        let swap = index.replace(&old, opened(&metadata, 9)).unwrap();
+
+        assert!(matches!(swap, Swap::Stale));
+        assert_eq!(index.metadata(metadata.id).unwrap().opened, at(5));
+    }
+
+    #[test]
+    fn replace_is_stale_when_expected_is_a_copy_with_equal_content() {
+        let (index, metadata) = index_with_document();
+        let copy = Arc::new(metadata.clone());
+
+        let swap = index.replace(&copy, opened(&metadata, 5)).unwrap();
+
+        assert!(matches!(swap, Swap::Stale));
+    }
+
+    #[test]
+    fn replace_fails_when_entry_removed() {
+        let (index, metadata) = index_with_document();
+        let current = index.metadata(metadata.id).unwrap();
+        index.remove(metadata.id);
+
+        let result = index.replace(&current, opened(&metadata, 5));
+
+        assert!(matches!(result, Err(LibraryError::NotFound(id)) if id == metadata.id));
+    }
+
+    #[test]
+    fn replace_keeps_folded_text_when_replacement_has_none() {
+        let (index, metadata) = index_with_document();
+        let current = index.metadata(metadata.id).unwrap();
+        index.replace(&current, opened(&metadata, 5)).unwrap();
+        index.finish_text_index(Vec::new());
+
+        let found = index.matching(Filter::All, &["old".to_owned()]);
+
+        assert_eq!(found.len(), 1);
     }
 }

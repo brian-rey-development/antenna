@@ -1,10 +1,8 @@
-use std::sync::Arc;
 use std::time::Duration;
 
 use antenna_core::{ExportFormat, Language, TextHash};
 use jiff::Timestamp;
 
-use crate::metadata_file::write_metadata;
 use crate::{
     DocumentId, DocumentMeta, ExportRecord, Library, LibraryError, SegmentKey, SegmentList,
     StoredVoice,
@@ -22,7 +20,7 @@ impl Library {
         let title = parse_title(title)?;
         self.change(id, |metadata| {
             Some(DocumentMeta {
-                title,
+                title: title.clone(),
                 modified: now,
                 ..metadata.clone()
             })
@@ -36,6 +34,10 @@ impl Library {
     ///
     /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
     /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "the stage plan fixes this signature, and the retry loop clones the voice"
+    )]
     pub fn set_voice(
         &self,
         id: DocumentId,
@@ -47,7 +49,7 @@ impl Library {
                 return None;
             }
             Some(DocumentMeta {
-                voice: Some(voice),
+                voice: Some(voice.clone()),
                 segments: None,
                 modified: now,
                 ..metadata.clone()
@@ -82,6 +84,10 @@ impl Library {
     ///
     /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
     /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
+    #[expect(
+        clippy::needless_pass_by_value,
+        reason = "the stage plan fixes this signature, and the retry loop clones the keys"
+    )]
     pub fn record_segments(
         &self,
         id: DocumentId,
@@ -103,7 +109,7 @@ impl Library {
             let segments = SegmentList {
                 text_hash,
                 voice: voice.clone(),
-                keys,
+                keys: keys.clone(),
                 is_complete: false,
                 duration: Duration::ZERO,
             };
@@ -184,23 +190,6 @@ impl Library {
     /// when the job ends. The progress is in memory only. A call with an unknown id does nothing.
     pub fn set_progress(&self, id: DocumentId, progress: Option<(u32, u32)>) {
         self.index.set_progress(id, progress);
-    }
-
-    pub(crate) fn commit(&self, metadata: DocumentMeta) -> Result<Arc<DocumentMeta>, LibraryError> {
-        write_metadata(&self.directory(metadata.id), &metadata)?;
-        self.index.replace(metadata)
-    }
-
-    pub(crate) fn change(
-        &self,
-        id: DocumentId,
-        edit: impl FnOnce(&DocumentMeta) -> Option<DocumentMeta>,
-    ) -> Result<(), LibraryError> {
-        let metadata = self.index.metadata(id)?;
-        if let Some(changed) = edit(&metadata) {
-            self.commit(changed)?;
-        }
-        Ok(())
     }
 }
 
