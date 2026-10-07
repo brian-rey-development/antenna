@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use antenna_core::{Artifact, ModelFiles};
@@ -8,10 +7,9 @@ use antenna_models::{DownloadProgress, ModelError, ModelStore, Source};
 use tempfile::TempDir;
 
 use crate::server::{Behavior, Route, TestServer, hub_path};
+use crate::support::{self, FILE_BYTES, NOT_CANCELLED};
 
-pub(crate) const FILE_BYTES: usize = 300_000;
 pub(crate) const RESUME_BYTES: usize = 100_000;
-pub(crate) static NOT_CANCELLED: AtomicBool = AtomicBool::new(false);
 
 const NO_DELAYS: [Duration; 3] = [Duration::ZERO; 3];
 
@@ -49,17 +47,11 @@ impl Setup {
     }
 
     pub(crate) fn file(&self, artifact: &Artifact) -> PathBuf {
-        self.store
-            .root()
-            .join(artifact.repo)
-            .join(artifact.revision)
-            .join(artifact.path)
+        support::file(self.store.root(), artifact)
     }
 
     pub(crate) fn partial(&self, artifact: &Artifact) -> PathBuf {
-        let mut name = self.file(artifact).into_os_string();
-        name.push(".part");
-        PathBuf::from(name)
+        support::partial(self.store.root(), artifact)
     }
 
     pub(crate) fn write_partial(&self, artifact: &Artifact, bytes: &[u8]) {

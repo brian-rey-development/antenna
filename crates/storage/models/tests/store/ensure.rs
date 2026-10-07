@@ -4,24 +4,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use antenna_core::{Artifact, Extent};
 use antenna_models::{DownloadProgress, ModelError};
 
-use crate::fixture::{Fixture, NOT_CANCELLED, ignore_progress};
-use crate::support::{leak, pattern, whole};
+use crate::fixture::{Fixture, ignore_progress};
+use crate::support::{BLOCK_BYTES, FILE_BYTES, NOT_CANCELLED, leak, whole};
 
-const BLOCK_BYTES: usize = 65_536;
-const FILE_BYTES: usize = 10 * BLOCK_BYTES;
 const WRONG_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
-
-fn published(fixture: &Fixture, key: &str, len: usize) -> (&'static Artifact, Vec<u8>) {
-    let bytes = pattern(len);
-    let artifact = whole(key, &bytes);
-    fixture.publish(artifact, &bytes);
-    (artifact, bytes)
-}
 
 #[test]
 fn ensure_installs_artifact_when_source_has_it() {
     let fixture = Fixture::new();
-    let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, bytes) = fixture.published("weights", FILE_BYTES);
 
     let files = fixture.ensure(&[artifact]).unwrap();
 
@@ -32,7 +23,7 @@ fn ensure_installs_artifact_when_source_has_it() {
 #[test]
 fn ensure_creates_root_when_directory_missing() {
     let fixture = Fixture::new();
-    let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, bytes) = fixture.published("weights", FILE_BYTES);
     let parent = tempfile::tempdir().unwrap();
     let store = fixture.store_at(&parent.path().join("models").join("nested"));
 
@@ -46,7 +37,7 @@ fn ensure_creates_root_when_directory_missing() {
 #[test]
 fn ensure_skips_fetch_when_artifact_installed() {
     let fixture = Fixture::new();
-    let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, bytes) = fixture.published("weights", FILE_BYTES);
     fixture.ensure(&[artifact]).unwrap();
     fixture.unpublish(artifact);
 
@@ -58,7 +49,7 @@ fn ensure_skips_fetch_when_artifact_installed() {
 #[test]
 fn ensure_fails_and_deletes_when_hash_differs() {
     let fixture = Fixture::new();
-    let (artifact, _) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, _) = fixture.published("weights", FILE_BYTES);
     let wrong = leak(Artifact {
         sha256: WRONG_HASH,
         ..*artifact
@@ -85,7 +76,7 @@ fn ensure_fails_and_deletes_when_hash_differs() {
 #[test]
 fn ensure_fails_and_deletes_when_size_differs() {
     let fixture = Fixture::new();
-    let (artifact, _) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, _) = fixture.published("weights", FILE_BYTES);
     let declared = leak(Artifact {
         extent: Extent::Whole {
             bytes: FILE_BYTES as u64 + 10,
@@ -110,7 +101,7 @@ fn ensure_fails_and_deletes_when_size_differs() {
 #[test]
 fn ensure_fetches_again_when_installed_file_truncated() {
     let fixture = Fixture::new();
-    let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, bytes) = fixture.published("weights", FILE_BYTES);
     fixture.ensure(&[artifact]).unwrap();
     OpenOptions::new()
         .write(true)
@@ -143,7 +134,7 @@ fn ensure_fails_when_disk_space_insufficient() {
 #[test]
 fn ensure_stops_after_one_block_when_cancelled() {
     let fixture = Fixture::new();
-    let (artifact, _) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, _) = fixture.published("weights", FILE_BYTES);
     let cancel = AtomicBool::new(false);
     let cancel_on_progress = |_: DownloadProgress| cancel.store(true, Ordering::Relaxed);
 
@@ -160,7 +151,7 @@ fn ensure_stops_after_one_block_when_cancelled() {
 #[test]
 fn ensure_returns_cancelled_without_partial_file_when_cancel_is_set() {
     let fixture = Fixture::new();
-    let (artifact, _) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, _) = fixture.published("weights", FILE_BYTES);
     let cancel = AtomicBool::new(true);
 
     let result = fixture.store.ensure([artifact], &ignore_progress, &cancel);
@@ -172,7 +163,7 @@ fn ensure_returns_cancelled_without_partial_file_when_cancel_is_set() {
 #[test]
 fn ensure_returns_cancelled_when_waiting_on_lock() {
     let fixture = Fixture::new();
-    let (artifact, _) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, _) = fixture.published("weights", FILE_BYTES);
     fs::create_dir_all(fixture.file(artifact).parent().unwrap()).unwrap();
     let lock = File::create(fixture.lock(artifact)).unwrap();
     lock.try_lock().unwrap();
@@ -187,7 +178,7 @@ fn ensure_returns_cancelled_when_waiting_on_lock() {
 #[test]
 fn ensure_fails_when_keys_collide() {
     let fixture = Fixture::new();
-    let (first, _) = published(&fixture, "weights", 10);
+    let (first, _) = fixture.published("weights", 10);
     let second = leak(Artifact {
         path: "other.bin",
         ..*first
@@ -204,8 +195,8 @@ fn ensure_fails_when_keys_collide() {
 #[test]
 fn ensure_installs_artifacts_without_descriptor() {
     let fixture = Fixture::new();
-    let (first, _) = published(&fixture, "first", 10);
-    let (second, _) = published(&fixture, "second", 20);
+    let (first, _) = fixture.published("first", 10);
+    let (second, _) = fixture.published("second", 20);
     let slice: &'static [Artifact] = Box::leak(vec![*first, *second].into_boxed_slice());
 
     let files = fixture
@@ -233,9 +224,9 @@ fn ensure_returns_not_found_when_source_lacks_artifact() {
 }
 
 #[test]
-fn final_path_absent_until_hash_checked() {
+fn final_path_stays_absent_when_hash_differs() {
     let fixture = Fixture::new();
-    let (artifact, _) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, _) = fixture.published("weights", FILE_BYTES);
     let wrong = leak(Artifact {
         sha256: WRONG_HASH,
         ..*artifact
@@ -254,7 +245,7 @@ fn final_path_absent_until_hash_checked() {
 #[test]
 fn ensure_reports_total_when_install_finishes() {
     let fixture = Fixture::new();
-    let (artifact, _) = published(&fixture, "weights", FILE_BYTES);
+    let (artifact, _) = fixture.published("weights", FILE_BYTES);
     let (sender, receiver) = flume::unbounded();
     let record = |progress| sender.send(progress).unwrap();
 

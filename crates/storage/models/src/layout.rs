@@ -41,27 +41,28 @@ impl ArtifactPaths {
     }
 
     pub(crate) fn is_installed(&self, extent: Extent) -> bool {
-        let has_size = fs::metadata(&self.file)
-            .is_ok_and(|metadata| metadata.is_file() && metadata.len() == extent.bytes());
-        has_size && self.verified.is_file()
+        self.has_declared_size(extent) && self.verified.is_file()
     }
 
-    pub(crate) fn partial_len(&self) -> u64 {
-        file_len(&self.partial)
+    fn has_declared_size(&self, extent: Extent) -> bool {
+        fs::metadata(&self.file)
+            .is_ok_and(|metadata| metadata.is_file() && metadata.len() == extent.bytes())
+    }
+
+    pub(crate) fn partial_bytes(&self) -> u64 {
+        file_bytes(&self.partial)
     }
 
     /// Returns the bytes of the partial file that a download can keep.
-    pub(crate) fn resumable_len(&self, extent: Extent) -> u64 {
-        let length = self.partial_len();
-        if length <= extent.bytes() { length } else { 0 }
+    pub(crate) fn resumable_bytes(&self, extent: Extent) -> u64 {
+        let kept = self.partial_bytes();
+        if kept <= extent.bytes() { kept } else { 0 }
     }
 
     /// Turns a file with the declared size but no `.verified` record into a partial file. The
     /// next hash check can then install it with no download.
     pub(crate) fn reclaim_unverified(&self, extent: Extent) -> Result<(), ModelError> {
-        let has_size = fs::metadata(&self.file)
-            .is_ok_and(|metadata| metadata.is_file() && metadata.len() == extent.bytes());
-        if !has_size || self.verified.is_file() || self.partial_len() > 0 {
+        if !self.has_declared_size(extent) || self.verified.is_file() || self.partial_bytes() > 0 {
             return Ok(());
         }
         fs::rename(&self.file, &self.partial).map_err(ModelError::io(&self.file))
@@ -71,7 +72,7 @@ impl ArtifactPaths {
         if self.is_installed(extent) {
             return 0;
         }
-        extent.bytes() - self.resumable_len(extent)
+        extent.bytes() - self.resumable_bytes(extent)
     }
 
     /// Takes the exclusive lock of the artifact. Returns `None` if another holder has it.
@@ -95,7 +96,7 @@ impl ArtifactPaths {
 }
 
 /// Returns the size of a file, or 0 if the file does not exist.
-pub(crate) fn file_len(path: &Path) -> u64 {
+pub(crate) fn file_bytes(path: &Path) -> u64 {
     fs::metadata(path).map_or(0, |metadata| metadata.len())
 }
 

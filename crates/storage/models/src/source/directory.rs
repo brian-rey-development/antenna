@@ -7,7 +7,7 @@ use antenna_core::Artifact;
 
 use super::{Fetch, FetchError, copy_blocks, finish_copy, start_offset};
 use crate::ModelError;
-use crate::layout::file_len;
+use crate::layout::file_bytes;
 
 /// Copies artifacts from a local directory with the layout of the model store.
 pub(crate) struct DirectoryFetch {
@@ -47,7 +47,7 @@ impl Fetch for DirectoryFetch {
         progress: &dyn Fn(u64),
         cancel: &AtomicBool,
     ) -> Result<(), FetchError> {
-        let have = file_len(partial);
+        let have = file_bytes(partial);
         let (mut input, source) = self.open_source(artifact)?;
         let position = start_offset(artifact.extent) + have;
         input

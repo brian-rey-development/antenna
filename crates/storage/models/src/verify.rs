@@ -21,7 +21,7 @@ pub(crate) fn commit(
     paths: &ArtifactPaths,
     cancel: &AtomicBool,
 ) -> Result<(), ModelError> {
-    let actual_bytes = paths.partial_len();
+    let actual_bytes = paths.partial_bytes();
     let expected_bytes = artifact.extent.bytes();
     if actual_bytes != expected_bytes {
         discard(paths)?;

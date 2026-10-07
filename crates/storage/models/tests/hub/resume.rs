@@ -5,8 +5,8 @@ use std::time::Duration;
 use antenna_models::DownloadProgress;
 
 use crate::server::{Behavior, Route, hub_path};
-use crate::setup::{FILE_BYTES, NOT_CANCELLED, RESUME_BYTES, Setup, resume_range, route};
-use crate::support::{pattern, range, whole};
+use crate::setup::{RESUME_BYTES, Setup, resume_range, route};
+use crate::support::{FILE_BYTES, NOT_CANCELLED, pattern, range, whole};
 
 const DROP_BYTES: usize = 50_000;
 const DROP_COUNT: u32 = 5;
@@ -130,6 +130,20 @@ fn ensure_downloads_only_range_when_extent_is_range() {
 
     assert_eq!(installed, &archive[100_000..150_000]);
     let expected = Some("bytes=100000-149999".to_owned());
+    assert_eq!(setup.ranges(&hub_path(artifact)), [expected]);
+}
+
+#[test]
+fn ensure_resumes_when_partial_file_exists_and_extent_is_range() {
+    let archive = pattern(FILE_BYTES);
+    let artifact = range("prompt", &archive, 100_000, 50_000);
+    let setup = Setup::new(vec![route(artifact, &archive, Behavior::Serve)]);
+    setup.write_partial(artifact, &archive[100_000..120_000]);
+
+    let installed = setup.install(artifact);
+
+    assert_eq!(installed, &archive[100_000..150_000]);
+    let expected = Some("bytes=120000-149999".to_owned());
     assert_eq!(setup.ranges(&hub_path(artifact)), [expected]);
 }
 

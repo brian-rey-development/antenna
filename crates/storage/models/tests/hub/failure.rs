@@ -5,10 +5,9 @@ use antenna_core::{Artifact, Extent};
 use antenna_models::{DownloadProgress, ModelError};
 
 use crate::server::Behavior;
-use crate::setup::{FILE_BYTES, RESUME_BYTES, Setup, route};
-use crate::support::{leak, pattern, range, whole};
+use crate::setup::{RESUME_BYTES, Setup, route};
+use crate::support::{BLOCK_BYTES, FILE_BYTES, leak, pattern, range, whole};
 
-const BLOCK_BYTES: u64 = 65_536;
 const EXTRA_BYTES: usize = 10;
 
 fn setup_with(behavior: Behavior) -> (Setup, &'static Artifact, Vec<u8>) {
@@ -67,8 +66,11 @@ fn ensure_does_not_retry_when_access_denied() {
 
         let result = setup.ensure(artifact);
 
-        assert!(matches!(result, Err(ModelError::NotFound { .. })));
-        assert_eq!(setup.request_count(artifact), 1);
+        assert!(
+            matches!(result, Err(ModelError::NotFound { .. })),
+            "status {status}"
+        );
+        assert_eq!(setup.request_count(artifact), 1, "status {status}");
     }
 }
 
@@ -79,11 +81,11 @@ fn ensure_retries_when_status_is_transient() {
 
         let result = setup.ensure(artifact);
 
-        assert!(matches!(
-            result,
-            Err(ModelError::Network { attempts: 4, .. })
-        ));
-        assert_eq!(setup.request_count(artifact), 4);
+        assert!(
+            matches!(result, Err(ModelError::Network { attempts: 4, .. })),
+            "status {status}"
+        );
+        assert_eq!(setup.request_count(artifact), 4, "status {status}");
     }
 }
 
@@ -123,7 +125,7 @@ fn ensure_stops_after_one_block_when_cancelled_during_download() {
 
     let kept = fs::metadata(setup.partial(artifact)).unwrap().len();
     assert!(matches!(result, Err(ModelError::Cancelled)));
-    assert!((1..=BLOCK_BYTES).contains(&kept));
+    assert!((1..=BLOCK_BYTES as u64).contains(&kept));
 }
 
 fn declared_shorter(artifact: &Artifact, bytes: &[u8]) -> &'static Artifact {

@@ -6,7 +6,7 @@ use antenna_core::{
 };
 
 use crate::fixture::Fixture;
-use crate::support::{leak, pattern, whole};
+use crate::support::leak;
 
 const TEXT: Localized = Localized {
     en: "Test",
@@ -97,12 +97,7 @@ pub(crate) const PROMPT_A_BYTES: usize = 500;
 pub(crate) const PROMPT_B_BYTES: usize = 600;
 
 pub(crate) fn alpha(fixture: &Fixture) -> Alpha {
-    let blob = |key, len| {
-        let bytes = pattern(len);
-        let artifact = whole(key, &bytes);
-        fixture.publish(artifact, &bytes);
-        artifact
-    };
+    let blob = |key, length| fixture.published(key, length).0;
     let fast = blob("fast", 100);
     let weights = blob("weights", WEIGHTS_BYTES);
     let max = blob("max", 200);

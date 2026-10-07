@@ -53,7 +53,7 @@ impl<'a, F: Fetch> Installer<'a, F> {
     ) -> Result<(), ModelError> {
         let extent = artifact.extent;
         let share = paths.missing_bytes(extent);
-        let kept_bytes = paths.resumable_len(extent);
+        let kept_bytes = paths.resumable_bytes(extent);
         let _lock = self.lock(paths)?;
         paths.reclaim_unverified(extent)?;
         if !paths.is_installed(extent) {
@@ -82,7 +82,7 @@ impl<'a, F: Fetch> Installer<'a, F> {
         retry::check(self.cancel)?;
         let mut failures = 0_u32;
         loop {
-            let before = paths.partial_len();
+            let before = paths.partial_bytes();
             let source = match self.fetch_once(artifact, paths, kept_bytes) {
                 Ok(()) => return Ok(()),
                 Err(FetchError::Cancelled) => return Err(ModelError::Cancelled),
@@ -91,7 +91,7 @@ impl<'a, F: Fetch> Installer<'a, F> {
             };
             // An attempt that grew the partial file starts the count again. It waits for the first
             // delay, as the first failure of a new count does.
-            failures = if paths.partial_len() > before {
+            failures = if paths.partial_bytes() > before {
                 0
             } else {
                 failures + 1
@@ -115,7 +115,7 @@ impl<'a, F: Fetch> Installer<'a, F> {
         kept_bytes: u64,
     ) -> Result<(), FetchError> {
         let bytes = artifact.extent.bytes();
-        if paths.partial_len() > bytes {
+        if paths.partial_bytes() > bytes {
             fs::remove_file(&paths.partial).map_err(FetchError::io(&paths.partial))?;
         }
         OpenOptions::new()
@@ -123,7 +123,7 @@ impl<'a, F: Fetch> Installer<'a, F> {
             .append(true)
             .open(&paths.partial)
             .map_err(FetchError::io(&paths.partial))?;
-        let have = paths.partial_len();
+        let have = paths.partial_bytes();
         if have == bytes {
             return Ok(());
         }

@@ -13,7 +13,7 @@ use ureq::{Agent, Body};
 use super::stall::ReadTimeoutConnector;
 use super::{Fetch, FetchError, copy_blocks, finish_copy, start_offset};
 use crate::ModelError;
-use crate::layout::file_len;
+use crate::layout::file_bytes;
 
 const HUB_ENDPOINT: &str = "https://huggingface.co";
 const RESOLVE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -69,7 +69,7 @@ impl Fetch for HubFetch {
         progress: &dyn Fn(u64),
         cancel: &AtomicBool,
     ) -> Result<(), FetchError> {
-        let have = file_len(partial);
+        let have = file_bytes(partial);
         let range = range_header(artifact.extent, have);
         let response = self.request(artifact, range.as_deref())?;
         let (mut output, remaining_bytes) = open_partial(artifact, partial, &response, have)?;
