@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use antenna_core::{Quality, SampleRate};
-use antenna_library::{DocumentId, GcReport, Library, LibraryError, SegmentKey, text_hash};
+use antenna_library::{DocumentId, GcReport, Library, SegmentKey, text_hash};
 use tempfile::TempDir;
 
 use super::support::{at, document_dir, key, library, plain, voice};
@@ -171,6 +171,8 @@ fn gc_keeps_segment_when_modified_after_now() {
 fn gc_continues_and_reports_first_error_when_directory_unreadable() {
     use std::fs::Permissions;
     use std::os::unix::fs::PermissionsExt;
+
+    use antenna_library::LibraryError;
 
     let (root, library, _id) = library_with_document();
     let old_segment = store_segment(&library, key('1'), HOUR * 2);
