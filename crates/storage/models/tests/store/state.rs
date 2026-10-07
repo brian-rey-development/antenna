@@ -22,14 +22,25 @@ fn install_voice(fixture: &Fixture, alpha: &Alpha, voice: usize) {
 }
 
 #[test]
-fn open_creates_root_when_directory_missing() {
+fn open_leaves_root_absent_when_directory_missing() {
     let parent = tempfile::tempdir().unwrap();
     let root = parent.path().join("models").join("nested");
 
     let store = ModelStore::open(&root, Source::Directory(parent.path().to_owned())).unwrap();
 
-    assert!(root.is_dir());
+    assert!(!root.exists());
     assert_eq!(store.root(), root);
+}
+
+#[test]
+fn disk_usage_is_zero_when_root_missing() {
+    let parent = tempfile::tempdir().unwrap();
+    let root = parent.path().join("models");
+    let store = ModelStore::open(root, Source::Directory(parent.path().to_owned())).unwrap();
+
+    let usage = store.disk_usage();
+
+    assert_eq!(usage.unwrap(), 0);
 }
 
 #[test]

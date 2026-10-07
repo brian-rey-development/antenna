@@ -28,27 +28,30 @@ pub struct ModelStore {
 impl ModelStore {
     /// Opens the model store of the platform, which downloads from Hugging Face.
     ///
-    /// The environment variable `ANTENNA_MODEL_DIR` replaces the platform directory.
+    /// The environment variable `ANTENNA_MODEL_DIR` replaces the platform directory. An empty
+    /// variable counts as not set.
     ///
     /// # Errors
     ///
     /// Returns [`ModelError::NoDataDir`] if the variable is not set and the platform has no data
-    /// directory, or [`ModelError::Io`] if the root cannot be created.
+    /// directory.
     pub fn open_default() -> Result<Self, ModelError> {
         let root = default_root(env::var_os(MODEL_DIR_ENV), project_dirs())?;
         Self::open(root, Source::Hub { endpoint: None })
     }
 
-    /// Opens the model store in a root directory and creates the directory if it does not exist.
+    /// Opens the model store in a root directory.
+    ///
+    /// The function does not touch the disk. [`ModelStore::ensure`] creates the root directory
+    /// when a download needs it.
     ///
     /// # Errors
     ///
-    /// Returns [`ModelError::Io`] if the root cannot be created.
+    /// This function returns no error. The result type keeps the signature of the stage plan, so a
+    /// later check of the root does not change the callers.
     pub fn open(root: impl Into<PathBuf>, source: Source) -> Result<Self, ModelError> {
-        let root = root.into();
-        fs::create_dir_all(&root).map_err(ModelError::io(&root))?;
         Ok(Self {
-            root,
+            root: root.into(),
             source,
             retry_delays: RETRY_DELAYS,
         })
@@ -126,6 +129,7 @@ impl ModelStore {
 
     fn check_disk_space(&self, missing_bytes: u64) -> Result<(), ModelError> {
         let needed_bytes = missing_bytes.saturating_add(DISK_MARGIN_BYTES);
+        fs::create_dir_all(&self.root).map_err(ModelError::io(&self.root))?;
         let available_bytes =
             fs4::available_space(&self.root).map_err(ModelError::io(&self.root))?;
         if available_bytes < needed_bytes {

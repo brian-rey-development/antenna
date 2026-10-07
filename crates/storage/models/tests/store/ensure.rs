@@ -30,6 +30,20 @@ fn ensure_installs_artifact_when_source_has_it() {
 }
 
 #[test]
+fn ensure_creates_root_when_directory_missing() {
+    let fixture = Fixture::new();
+    let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);
+    let parent = tempfile::tempdir().unwrap();
+    let store = fixture.store_at(&parent.path().join("models").join("nested"));
+
+    let files = store
+        .ensure([artifact], &ignore_progress, &NOT_CANCELLED)
+        .unwrap();
+
+    assert_eq!(fs::read(files.path("weights").unwrap()).unwrap(), bytes);
+}
+
+#[test]
 fn ensure_skips_fetch_when_artifact_installed() {
     let fixture = Fixture::new();
     let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);

@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
 use antenna_core::{Artifact, ModelFiles};
@@ -29,6 +29,10 @@ impl Fixture {
             source,
             _root: root,
         }
+    }
+
+    pub(crate) fn store_at(&self, root: &Path) -> ModelStore {
+        ModelStore::open(root, Source::Directory(self.source.path().to_owned())).unwrap()
     }
 
     pub(crate) fn publish(&self, artifact: &Artifact, bytes: &[u8]) {

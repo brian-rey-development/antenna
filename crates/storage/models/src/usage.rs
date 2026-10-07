@@ -144,7 +144,11 @@ pub fn keep_artifacts<'a>(
 }
 
 fn list_directory(directory: &Path) -> Result<Vec<(PathBuf, Metadata)>, ModelError> {
-    let entries = fs::read_dir(directory).map_err(ModelError::io(directory))?;
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(source) => return Err(ModelError::io(directory)(source)),
+    };
     let mut listed = Vec::new();
     for entry in entries {
         let entry = entry.map_err(ModelError::io(directory))?;

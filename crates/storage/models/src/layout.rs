@@ -75,7 +75,11 @@ impl ArtifactPaths {
     }
 
     /// Takes the exclusive lock of the artifact. Returns `None` if another holder has it.
+    ///
+    /// The function creates the directory of the artifact on each call, because a removal can
+    /// delete an empty directory while a download waits for the lock.
     pub(crate) fn try_lock(&self) -> Result<Option<File>, ModelError> {
+        fs::create_dir_all(&self.directory).map_err(ModelError::io(&self.directory))?;
         let file = OpenOptions::new()
             .create(true)
             .truncate(false)
@@ -236,6 +240,17 @@ mod tests {
         assert_eq!(paths.verified, directory.join("archive.nemo.verified"));
         assert_eq!(paths.lock, directory.join("archive.nemo.lock"));
         assert_eq!(paths.directory(), directory);
+    }
+
+    #[test]
+    fn try_lock_creates_directory_when_it_is_missing() {
+        let root = tempfile::tempdir().unwrap();
+        let paths = ArtifactPaths::new(root.path(), &ARCHIVE);
+
+        let lock = paths.try_lock().unwrap();
+
+        assert!(lock.is_some());
+        assert!(paths.lock.is_file());
     }
 
     #[test]

@@ -54,7 +54,6 @@ impl<'a, F: Fetch> Installer<'a, F> {
         let extent = artifact.extent;
         let share = paths.missing_bytes(extent);
         let kept_bytes = paths.resumable_len(extent);
-        fs::create_dir_all(paths.directory()).map_err(ModelError::io(paths.directory()))?;
         let _lock = self.lock(paths)?;
         paths.reclaim_unverified(extent)?;
         if !paths.is_installed(extent) {
