@@ -1,0 +1,12 @@
+[package]
+name = "antenna-audio"
+version = "0.1.0"
+description = "Player, export encoders, loudness and resampler of Antenna"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
