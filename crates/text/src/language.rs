@@ -9,9 +9,9 @@ const IDENTIFY_SAMPLE_CHARS: usize = 2_000;
 const IDENTIFY_MIN_LETTERS: usize = 20;
 
 static DETECTOR: LazyLock<Detector> =
-    LazyLock::new(|| Detector::with_allowlist(Language::ALL.map(lang_of).to_vec()));
+    LazyLock::new(|| Detector::with_allowlist(Language::ALL.map(whatlang_of).to_vec()));
 
-fn lang_of(language: Language) -> Lang {
+fn whatlang_of(language: Language) -> Lang {
     match language {
         Language::En => Lang::Eng,
         Language::Es => Lang::Spa,
@@ -32,10 +32,10 @@ pub fn identify_language(document: &Document) -> Option<Language> {
     if letters.count() < IDENTIFY_MIN_LETTERS {
         return None;
     }
-    let lang = DETECTOR.detect(&sample).filter(Info::is_reliable)?.lang();
+    let detected = DETECTOR.detect(&sample).filter(Info::is_reliable)?.lang();
     Language::ALL
         .into_iter()
-        .find(|language| lang_of(*language) == lang)
+        .find(|language| whatlang_of(*language) == detected)
 }
 
 #[cfg(test)]
