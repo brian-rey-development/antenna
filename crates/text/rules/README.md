@@ -17,10 +17,12 @@ The file is a copy of the file at the commit with two changes.
 
 The code in `src/srx_rules.rs` also changes the rules in memory before the parse. The `srx` crate reads the break position from the first capture group of a rule. The code turns each capture group of a `beforebreak` pattern into a non-capturing group. The test `rules_have_no_capture_group_in_beforebreak_when_rewritten` checks all patterns of the file.
 
+The code in `src/break_guard.rs` skips the rules for a block that cannot break. The set `BREAK_CHARS` lists the characters that each `break="yes"` rule needs before the break. The test `break_guard_covers_each_break_rule_when_vendored_rules` checks the set against the file.
+
 To update the file, do these steps.
 
 1. Copy the file from a newer commit.
 2. Remove the rule sets and the `languagemap` elements that Antenna does not use.
 3. Write the U+2013 and U+2014 characters as references.
 4. Write the new commit in the table above.
-5. Run the tests of `antenna-text`.
+5. Run the tests of `antenna-text`. If `break_guard_covers_each_break_rule_when_vendored_rules` fails, derive `BREAK_CHARS` again from the new rules.

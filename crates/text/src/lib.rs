@@ -6,6 +6,7 @@
 //! clauses. [`identify_language`] reads the same prose.
 
 mod boundary;
+mod break_guard;
 mod error;
 mod fragment;
 mod language;

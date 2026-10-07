@@ -1,5 +1,6 @@
 use srx::Rules;
 
+use crate::break_guard;
 use crate::fragment::Fragment;
 
 /// Splits a block into sentences. The function drops each sentence with no letter and no digit.
@@ -22,9 +23,13 @@ pub(crate) fn in_block<'a>(
         .filter(|fragment| fragment.text().chars().any(char::is_alphanumeric))
 }
 
-/// Returns the byte length of each sentence of the text.
+/// Returns the byte length of each sentence of the text. The rules run only if the text has a
+/// character that a break needs. Without it, the text is one sentence.
 fn sentence_lengths(rules: &Rules, text: &str) -> Vec<usize> {
     let text = newlines_first(text);
+    if !break_guard::may_break(&text) {
+        return vec![text.len()];
+    }
     rules
         .split_ranges(&text)
         .into_iter()
@@ -59,10 +64,19 @@ mod tests {
     use std::ops::Range;
 
     use antenna_core::Language;
+    use proptest::prelude::*;
+    use proptest::test_runner::{Config, RngAlgorithm, RngSeed};
 
     use crate::srx_rules::for_language;
 
     use super::*;
+
+    const CASES: u32 = 1024;
+    const SEED: u64 = 0x5E27_E2CE;
+    const BLOCK_PATTERN: &str = concat!(
+        "[A-Ca-c0-2 .!?:;,\\n\\r\\t<>{}\\[\\]()'\"*-",
+        "\\x{bb}\\x{2026}\\x{2029}\\x{a0}\\x{e9}]{1,60}"
+    );
 
     fn sentences_of(text: &str, language: Language) -> Vec<(String, Range<usize>)> {
         let rules = for_language(language).unwrap();
@@ -77,6 +91,12 @@ mod tests {
             .into_iter()
             .map(|(sentence, _)| sentence)
             .collect()
+    }
+
+    fn unguarded_lengths(rules: &Rules, text: &str) -> Vec<usize> {
+        let ranges = rules.split_ranges(&newlines_first(text));
+
+        ranges.into_iter().map(|range| range.len()).collect()
     }
 
     #[test]
@@ -113,6 +133,20 @@ mod tests {
     }
 
     #[test]
+    fn sentence_lengths_split_when_closing_quote_alone_precedes_break() {
+        let rules = for_language(Language::Es).unwrap();
+
+        let lengths = sentence_lengths(rules, "a\u{bb} \u{bb}b");
+
+        assert_eq!(lengths, [4, 3]);
+    }
+
+    #[test]
+    fn sentences_stay_one_when_block_has_no_break_character() {
+        assert_eq!(texts_of("A short item."), ["A short item."]);
+    }
+
+    #[test]
     fn newlines_first_keeps_byte_length_when_runs_have_newlines() {
         let text = "a \r\n b\n\t c \u{a0}\n";
 
@@ -129,5 +163,27 @@ mod tests {
         let texts = texts_of("One. ... ?! 2.");
 
         assert_eq!(texts, ["One.", "2."]);
+    }
+
+    proptest! {
+        #![proptest_config(Config {
+            cases: CASES,
+            rng_seed: RngSeed::Fixed(SEED),
+            rng_algorithm: RngAlgorithm::ChaCha,
+            failure_persistence: None,
+            ..Config::default()
+        })]
+
+        #[test]
+        fn sentence_lengths_match_rules_when_block_is_random(
+            text in BLOCK_PATTERN,
+            language in prop::sample::select(Language::ALL.to_vec()),
+        ) {
+            let rules = for_language(language).unwrap();
+
+            let guarded = sentence_lengths(rules, &text);
+
+            prop_assert_eq!(guarded, unguarded_lengths(rules, &text));
+        }
     }
 }
