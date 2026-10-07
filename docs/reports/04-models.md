@@ -5,7 +5,7 @@
 | Stage file | `docs/plans/04-models.md` |
 | Date | 2026-10-06 |
 | Result | Complete, except the manual criterion AC-04-23. No Blocked section |
-| CI | Run 37551738183 on commit `5b93594`, green on `macos-latest`, `ubuntu-latest` and `windows-latest` |
+| CI | Run 37554349982 on commit `b5e82de`, green on `macos-latest`, `ubuntu-latest` and `windows-latest` |
 
 ## 1. Acceptance criteria
 
@@ -119,7 +119,7 @@ Sign-off line: ______________________
 
 ## 5. CI
 
-Run 37551738183 of the push of `5b93594`. The jobs `check (macos-latest)`, `check (ubuntu-latest)` and `check (windows-latest)` have the conclusion `success`.
+Run 37554349982 of the push of `b5e82de`, the last commit of the second review. The jobs `check (macos-latest)`, `check (ubuntu-latest)` and `check (windows-latest)` have the conclusion `success`.
 
 ## 6. Second independent review
 
