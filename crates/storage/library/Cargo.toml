@@ -1,0 +1,24 @@
+[package]
+name = "antenna-library"
+version = "0.1.0"
+description = "Documents, segment store and search of Antenna"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+antenna-core.workspace = true
+directories.workspace = true
+hound.workspace = true
+sha2.workspace = true
+thiserror = { workspace = true, features = ["std"] }
+toml = { workspace = true, features = ["display", "parse", "serde", "std"] }
+uuid = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

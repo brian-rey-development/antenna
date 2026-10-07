@@ -5,6 +5,7 @@ members = [
   "crates/engines/fake",
   "crates/engines/registry",
   "crates/engines/testkit",
+  "crates/storage/library",
   "crates/storage/models",
   "crates/text",
   "tools/xtask",
@@ -21,6 +22,7 @@ antenna-core = { path = "crates/core" }
 antenna-engine-fake = { path = "crates/engines/fake" }
 antenna-engine-registry = { path = "crates/engines/registry", default-features = false }
 antenna-engine-testkit = { path = "crates/engines/testkit" }
+antenna-library = { path = "crates/storage/library" }
 antenna-models = { path = "crates/storage/models" }
 
 cargo_metadata = { version = "0.23.1", default-features = false }
@@ -28,9 +30,12 @@ directories = { version = "6.0.0", default-features = false }
 divan = { version = "0.1.21", default-features = false }
 flume = { version = "0.12.0", default-features = false }
 fs4 = { version = "1.1.0", default-features = false }
+hound = { version = "3.5.1", default-features = false }
 insta = { version = "1.49.0", default-features = false }
+jiff = { version = "0.2.38", default-features = false }
 proptest = { version = "1.11.0", default-features = false }
 pulldown-cmark = { version = "0.13.4", default-features = false }
+serde = { version = "1.0.229", default-features = false }
 sha2 = { version = "0.11.0", default-features = false }
 srx = { version = "0.1.4", default-features = false }
 strum = { version = "0.28.0", default-features = false }
@@ -38,7 +43,9 @@ tempfile = { version = "3.27.0", default-features = false }
 thiserror = { version = "2.0.21", default-features = false }
 tiny_http = { version = "0.12.0", default-features = false }
 toml = { version = "1.1.6", default-features = false }
+unicode-normalization = { version = "0.1.25", default-features = false }
 ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
+uuid = { version = "1.27.0", default-features = false }
 whatlang = { version = "0.18.0", default-features = false }
 
 [workspace.lints.rust]
