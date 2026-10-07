@@ -1,11 +1,14 @@
-//! Benchmarks of `open`, `build_search_index` and `list` with 1000 documents of 20 KB.
+//! Benchmarks of `open`, `build_search_index` and `list` with 1000 documents of 20 KB. Each
+//! document has a complete list of 40 segment keys.
 
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use antenna_core::{Document, TextFormat};
-use antenna_library::{Filter, Library};
+use std::time::Duration;
+
+use antenna_core::{Document, EngineId, Quality, TextFormat, VoiceId};
+use antenna_library::{Filter, Library, SegmentKey, StoredVoice, text_hash};
 use divan::Bencher;
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, Zoned};
@@ -15,6 +18,9 @@ const DOCUMENT_BYTES: usize = 20_000;
 const SECONDS_PER_DAY: i64 = 86_400;
 const FIRST_DOCUMENT_SECONDS: i64 = 1_700_000_000;
 const NOW_SECONDS: i64 = 1_790_000_000;
+const NOW: Timestamp = Timestamp::constant(NOW_SECONDS, 0);
+const SEGMENTS_PER_DOCUMENT: i64 = 40;
+const SEGMENT_DURATION: Duration = Duration::from_secs(120);
 const WORDS: [&str; 16] = [
     "casa",
     "mercado",
@@ -51,12 +57,28 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn populate(root: &Path) -> Result<(), Box<dyn Error>> {
     let library = Library::open(root)?;
+    let voice = StoredVoice::new(
+        VoiceId::new(EngineId::new("fake"), "en-alba"),
+        Quality::Balanced,
+    );
     for index in 0..DOCUMENTS {
         let document = Document::new(text_of(index), TextFormat::Plain)?;
         let modified = Timestamp::from_second(FIRST_DOCUMENT_SECONDS + index * SECONDS_PER_DAY)?;
-        library.create(&format!("Document {index}"), &document, modified)?;
+        let id = library.create(&format!("Document {index}"), &document, modified)?;
+        let hash = text_hash(&document);
+        library.set_voice(id, voice.clone(), modified)?;
+        library.record_segments(id, hash, &voice, keys_of(index)?)?;
+        library.record_complete(id, hash, &voice, SEGMENT_DURATION)?;
     }
     Ok(())
+}
+
+fn keys_of(index: i64) -> Result<Vec<SegmentKey>, Box<dyn Error>> {
+    let keys = (0..SEGMENTS_PER_DOCUMENT).map(|segment| {
+        let number = index * SEGMENTS_PER_DOCUMENT + segment;
+        format!("{number:064x}").parse::<SegmentKey>()
+    });
+    Ok(keys.collect::<Result<_, _>>()?)
 }
 
 fn text_of(index: i64) -> String {
@@ -82,10 +104,8 @@ fn root() -> &'static Path {
         .expect("main sets the root before the benchmarks run")
 }
 
-#[expect(clippy::expect_used, reason = "the constant is a valid timestamp")]
 fn now() -> Zoned {
-    let timestamp = Timestamp::from_second(NOW_SECONDS).expect("the constant is in range");
-    timestamp.to_zoned(TimeZone::UTC)
+    NOW.to_zoned(TimeZone::UTC)
 }
 
 #[expect(
