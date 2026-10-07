@@ -18,8 +18,8 @@ use crate::{
 
 /// The documents of the user and their segment store, in one data directory.
 ///
-/// The library takes the time as a parameter. The functions that change a document must not run
-/// at the same time on two threads, because each one reads the document, changes it and writes it.
+/// The library takes the time as a parameter. A function that changes a document reads it, changes
+/// it and writes it. Thus two such functions must not run at the same time on two threads.
 #[derive(Debug)]
 pub struct Library {
     root: PathBuf,
@@ -107,9 +107,10 @@ impl Library {
         Ok(id)
     }
 
-    /// Loads the metadata and the text of a document. If the text file is newer than the
-    /// metadata, because a crash came between the two writes of `save_text`, the function stores
-    /// the hash of the text. Then the status of the document is `Draft`.
+    /// Loads the metadata and the text of a document.
+    ///
+    /// A crash between the two writes of `save_text` leaves a text file that is newer than the
+    /// metadata. Then the function stores the hash of the text, so the status is `Draft`.
     ///
     /// # Errors
     ///

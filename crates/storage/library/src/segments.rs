@@ -17,7 +17,7 @@ const KEY_BYTES: usize = 32;
 const PCM_BITS: u16 = 16;
 
 /// The name of a stored segment. It is the SHA-256 of the engine, the engine version, the voice,
-/// the quality and the segment text, so a change of any of them gives a new key.
+/// the quality and the segment text. A change of any of them gives a new key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SegmentKey([u8; KEY_BYTES]);
 
@@ -25,7 +25,7 @@ impl SegmentKey {
     /// Makes the key of a segment text for one engine, voice and quality.
     ///
     /// Each field enters the hash as its length (a `u64` in little-endian byte order) and its
-    /// UTF-8 bytes, so two different field lists never give the same bytes.
+    /// UTF-8 bytes. Thus two different field lists never give the same bytes.
     pub fn new(
         descriptor: &EngineDescriptor,
         voice: VoiceId,

@@ -1,7 +1,7 @@
 use std::fs;
 
 use antenna_core::{ExportFormat, Language, Quality, SampleRate};
-use antenna_library::LibraryError;
+use antenna_library::{Library, LibraryError};
 
 use super::support::{
     at, complete, document_dir, foreign_id, key, library, markdown, plain, reopen, voice,
@@ -252,4 +252,11 @@ fn delete_fails_when_id_unknown() {
     let result = library.delete(id);
 
     assert!(matches!(result, Err(LibraryError::NotFound(_))));
+}
+
+#[test]
+fn library_is_send_and_sync() {
+    fn assert_send_and_sync<T: Send + Sync>() {}
+
+    assert_send_and_sync::<Library>();
 }

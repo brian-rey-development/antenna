@@ -15,8 +15,9 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns [`LibraryError::EmptyTitle`] if the title is blank, and the errors of
-    /// [`Library::save_text`] for the metadata.
+    /// Returns [`LibraryError::EmptyTitle`] if the title is blank, [`LibraryError::NotFound`] if no
+    /// document has the id, and [`LibraryError::Io`] or [`LibraryError::MetaWrite`] if
+    /// `document.toml` cannot be written.
     pub fn rename(&self, id: DocumentId, title: &str, now: Timestamp) -> Result<(), LibraryError> {
         let title = parse_title(title)?;
         self.change(id, |meta| {
@@ -33,7 +34,8 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns the errors of [`Library::rename`] without the title error.
+    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
+    /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
     pub fn set_voice(
         &self,
         id: DocumentId,
@@ -57,7 +59,8 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns the errors of [`Library::rename`] without the title error.
+    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
+    /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
     pub fn set_language(
         &self,
         id: DocumentId,
@@ -76,7 +79,8 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns the errors of [`Library::rename`] without the title error.
+    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
+    /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
     pub fn record_segments(
         &self,
         id: DocumentId,
@@ -85,6 +89,9 @@ impl Library {
         keys: Vec<SegmentKey>,
     ) -> Result<(), LibraryError> {
         self.change(id, |meta| {
+            if !meta.is_for_job(text_hash, voice) {
+                return None;
+            }
             let segments = SegmentList {
                 text_hash,
                 voice: voice.clone(),
@@ -92,7 +99,7 @@ impl Library {
                 is_complete: false,
                 duration: Duration::ZERO,
             };
-            meta.is_for_job(text_hash, voice).then(|| DocumentMeta {
+            Some(DocumentMeta {
                 segments: Some(segments),
                 ..meta.clone()
             })
@@ -104,7 +111,8 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns the errors of [`Library::rename`] without the title error.
+    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
+    /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
     pub fn record_complete(
         &self,
         id: DocumentId,
@@ -115,12 +123,16 @@ impl Library {
         self.change(id, |meta| {
             let list = meta.segments.as_ref()?;
             let is_current = list.text_hash == text_hash && list.voice == *voice;
-            (is_current && meta.is_for_job(text_hash, voice)).then(|| DocumentMeta {
-                segments: Some(SegmentList {
-                    is_complete: true,
-                    duration,
-                    ..list.clone()
-                }),
+            if !is_current || !meta.is_for_job(text_hash, voice) {
+                return None;
+            }
+            let segments = SegmentList {
+                is_complete: true,
+                duration,
+                ..list.clone()
+            };
+            Some(DocumentMeta {
+                segments: Some(segments),
                 ..meta.clone()
             })
         })
@@ -130,7 +142,8 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns the errors of [`Library::rename`] without the title error.
+    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
+    /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
     pub fn record_export(
         &self,
         id: DocumentId,
@@ -149,7 +162,8 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns the errors of [`Library::rename`] without the title error.
+    /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
+    /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
     pub fn mark_opened(&self, id: DocumentId, now: Timestamp) -> Result<(), LibraryError> {
         self.change(id, |meta| {
             Some(DocumentMeta {
