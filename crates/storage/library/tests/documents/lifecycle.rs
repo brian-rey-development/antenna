@@ -13,18 +13,18 @@ fn document_round_trips_when_created_and_loaded() {
     let document = markdown("# Plan\n\nBuy milk.\n");
 
     let id = library.create("Weekly plan", &document, at(1_000)).unwrap();
-    let (meta, loaded) = library.load(id).unwrap();
+    let (metadata, loaded) = library.load(id).unwrap();
 
     assert_eq!(loaded, document);
-    assert_eq!(meta.id, id);
-    assert_eq!(meta.title, "Weekly plan");
-    assert_eq!(meta.format, document.format());
+    assert_eq!(metadata.id, id);
+    assert_eq!(metadata.title, "Weekly plan");
+    assert_eq!(metadata.format, document.format());
     assert_eq!(
-        (meta.created, meta.modified, meta.opened),
+        (metadata.created, metadata.modified, metadata.opened),
         (at(1_000), at(1_000), at(1_000))
     );
     assert_eq!(
-        (meta.voice.is_none(), meta.segments.is_none()),
+        (metadata.voice.is_none(), metadata.segments.is_none()),
         (true, true)
     );
 }
@@ -35,9 +35,9 @@ fn document_persists_when_library_reopened() {
     let id = library.create("Notes", &plain("Hello"), at(1_000)).unwrap();
 
     let reopened = reopen(&root);
-    let (meta, loaded) = reopened.load(id).unwrap();
+    let (metadata, loaded) = reopened.load(id).unwrap();
 
-    assert_eq!(meta.title, "Notes");
+    assert_eq!(metadata.title, "Notes");
     assert_eq!(loaded, plain("Hello"));
     assert_eq!(reopened.count(), 1);
 }
@@ -98,10 +98,13 @@ fn save_text_changes_text_and_modified_when_text_differs() {
     library
         .save_text(id, &plain("Hello again"), at(2_000))
         .unwrap();
-    let (meta, loaded) = library.load(id).unwrap();
+    let (metadata, loaded) = library.load(id).unwrap();
 
     assert_eq!(loaded, plain("Hello again"));
-    assert_eq!((meta.created, meta.modified), (at(1_000), at(2_000)));
+    assert_eq!(
+        (metadata.created, metadata.modified),
+        (at(1_000), at(2_000))
+    );
 }
 
 #[test]
@@ -135,9 +138,12 @@ fn rename_changes_title_and_modified() {
     let id = library.create("Notes", &plain("Hello"), at(1_000)).unwrap();
 
     library.rename(id, " Ideas ", at(2_000)).unwrap();
-    let meta = library.load(id).unwrap().0;
+    let metadata = library.load(id).unwrap().0;
 
-    assert_eq!((meta.title.as_str(), meta.modified), ("Ideas", at(2_000)));
+    assert_eq!(
+        (metadata.title.as_str(), metadata.modified),
+        ("Ideas", at(2_000))
+    );
 }
 
 #[test]
@@ -166,11 +172,11 @@ fn set_voice_clears_segments_when_voice_changes() {
     library
         .set_voice(id, voice("en-bruno", Quality::Balanced), at(3_000))
         .unwrap();
-    let meta = library.load(id).unwrap().0;
+    let metadata = library.load(id).unwrap().0;
 
-    assert!(meta.segments.is_none());
-    assert_eq!(meta.voice, Some(voice("en-bruno", Quality::Balanced)));
-    assert_eq!(meta.modified, at(3_000));
+    assert!(metadata.segments.is_none());
+    assert_eq!(metadata.voice, Some(voice("en-bruno", Quality::Balanced)));
+    assert_eq!(metadata.modified, at(3_000));
 }
 
 #[test]
@@ -190,10 +196,10 @@ fn set_voice_keeps_segments_when_voice_same() {
     library
         .set_voice(id, voice("en-alba", Quality::Balanced), at(3_000))
         .unwrap();
-    let meta = library.load(id).unwrap().0;
+    let metadata = library.load(id).unwrap().0;
 
-    assert!(meta.segments.is_some());
-    assert_eq!(meta.modified, modified);
+    assert!(metadata.segments.is_some());
+    assert_eq!(metadata.modified, modified);
 }
 
 #[test]

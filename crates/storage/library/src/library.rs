@@ -9,7 +9,7 @@ use jiff::{Timestamp, Zoned};
 
 use crate::edits::parse_title;
 use crate::index::Index;
-use crate::meta_file::{read_meta, write_meta};
+use crate::metadata_file::{read_metadata, write_metadata};
 use crate::period::group_by_period;
 use crate::{
     DocumentId, DocumentMeta, DocumentSummary, Filter, GcReport, Group, LibraryError, SegmentStore,
@@ -88,7 +88,7 @@ impl Library {
         let title = parse_title(title)?;
         let id = DocumentId::new(now);
         let directory = self.directory(id);
-        let meta = DocumentMeta {
+        let metadata = DocumentMeta {
             id,
             title,
             format: document.format(),
@@ -101,11 +101,11 @@ impl Library {
             segments: None,
             last_export: None,
         };
-        if let Err(error) = write_new(&directory, &meta, document) {
+        if let Err(error) = write_new(&directory, &metadata, document) {
             drop(fs::remove_dir_all(&directory));
             return Err(error);
         }
-        self.index.insert(meta, Some(fold(document.text())));
+        self.index.insert(metadata, Some(fold(document.text())));
         Ok(id)
     }
 
@@ -119,20 +119,20 @@ impl Library {
     /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] if
     /// the text file is absent, is not UTF-8 or is blank.
     pub fn load(&self, id: DocumentId) -> Result<(Arc<DocumentMeta>, Document), LibraryError> {
-        let meta = self.index.meta(id)?;
-        let path = paths::text_path(&self.directory(id), meta.format);
+        let metadata = self.index.metadata(id)?;
+        let path = paths::text_path(&self.directory(id), metadata.format);
         let text = fs::read_to_string(&path).map_err(LibraryError::io(&path))?;
-        let document = Document::new(text, meta.format).map_err(|source| LibraryError::Io {
+        let document = Document::new(text, metadata.format).map_err(|source| LibraryError::Io {
             path,
             source: io::Error::new(ErrorKind::InvalidData, source),
         })?;
         let hash = text_hash(&document);
-        if hash == meta.text_hash {
-            return Ok((meta, document));
+        if hash == metadata.text_hash {
+            return Ok((metadata, document));
         }
         let repaired = DocumentMeta {
             text_hash: hash,
-            ..(*meta).clone()
+            ..(*metadata).clone()
         };
         Ok((self.commit(repaired)?, document))
     }
@@ -150,9 +150,9 @@ impl Library {
         document: &Document,
         now: Timestamp,
     ) -> Result<(), LibraryError> {
-        let meta = self.index.meta(id)?;
+        let metadata = self.index.metadata(id)?;
         let hash = text_hash(document);
-        if hash == meta.text_hash {
+        if hash == metadata.text_hash {
             return Ok(());
         }
         let directory = self.directory(id);
@@ -161,14 +161,14 @@ impl Library {
             format: document.format(),
             text_hash: hash,
             modified: now,
-            ..(*meta).clone()
+            ..(*metadata).clone()
         };
         self.commit(changed)?;
         self.index.set_folded_text(id, fold(document.text()));
-        if meta.format == document.format() {
+        if metadata.format == document.format() {
             return Ok(());
         }
-        let old_path = paths::text_path(&directory, meta.format);
+        let old_path = paths::text_path(&directory, metadata.format);
         match fs::remove_file(&old_path) {
             Err(error) if error.kind() != ErrorKind::NotFound => {
                 Err(LibraryError::io(&old_path)(error))
@@ -184,7 +184,7 @@ impl Library {
     /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] if
     /// the directory cannot be deleted.
     pub fn delete(&self, id: DocumentId) -> Result<(), LibraryError> {
-        self.index.meta(id)?;
+        self.index.metadata(id)?;
         let directory = self.directory(id);
         fs::remove_dir_all(&directory).map_err(LibraryError::io(&directory))?;
         self.index.remove(id);
@@ -202,10 +202,10 @@ impl Library {
     pub fn build_search_index(&self) -> Result<(), LibraryError> {
         let mut texts = Vec::new();
         let mut first_error = None;
-        for meta in self.index.unindexed() {
-            let path = paths::text_path(&self.directory(meta.id), meta.format);
+        for metadata in self.index.unindexed() {
+            let path = paths::text_path(&self.directory(metadata.id), metadata.format);
             match fs::read_to_string(&path) {
-                Ok(text) => texts.push((meta.id, fold(&text))),
+                Ok(text) => texts.push((metadata.id, fold(&text))),
                 Err(source) => {
                     first_error.get_or_insert(LibraryError::Io { path, source });
                 }
@@ -257,12 +257,12 @@ impl Library {
 
 fn write_new(
     directory: &Path,
-    meta: &DocumentMeta,
+    metadata: &DocumentMeta,
     document: &Document,
 ) -> Result<(), LibraryError> {
     fs::create_dir_all(directory).map_err(LibraryError::io(directory))?;
     write_text(directory, document)?;
-    write_meta(directory, meta)
+    write_metadata(directory, metadata)
 }
 
 fn write_text(directory: &Path, document: &Document) -> Result<(), LibraryError> {
@@ -278,9 +278,9 @@ fn load_documents(library_dir: &Path, index: &Index) -> Result<Vec<PathBuf>, Lib
         if !directory.is_dir() {
             continue;
         }
-        match read_meta(&directory) {
-            Ok(meta) if paths::document_dir(library_dir, meta.id) == directory => {
-                index.insert(meta, None);
+        match read_metadata(&directory) {
+            Ok(metadata) if paths::document_dir(library_dir, metadata.id) == directory => {
+                index.insert(metadata, None);
             }
             Ok(_) | Err(_) => skipped.push(directory),
         }

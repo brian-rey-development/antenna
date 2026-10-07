@@ -8,19 +8,22 @@ use crate::{DocumentMeta, LibraryError, atomic, paths};
 
 const META_VERSION: u32 = 1;
 
-pub(crate) fn read_meta(directory: &Path) -> Result<DocumentMeta, LibraryError> {
-    let path = paths::meta_path(directory);
+pub(crate) fn read_metadata(directory: &Path) -> Result<DocumentMeta, LibraryError> {
+    let path = paths::metadata_path(directory);
     let text = fs::read_to_string(&path).map_err(LibraryError::io(&path))?;
-    toml::from_str::<MetaFile<DocumentMeta>>(&text)
-        .map(|file| file.meta)
+    toml::from_str::<MetadataFile<DocumentMeta>>(&text)
+        .map(|file| file.metadata)
         .map_err(|source| LibraryError::MetaRead { path, source })
 }
 
-pub(crate) fn write_meta(directory: &Path, meta: &DocumentMeta) -> Result<(), LibraryError> {
-    let path = paths::meta_path(directory);
-    let file = MetaFile {
-        version: MetaVersion,
-        meta,
+pub(crate) fn write_metadata(
+    directory: &Path,
+    metadata: &DocumentMeta,
+) -> Result<(), LibraryError> {
+    let path = paths::metadata_path(directory);
+    let file = MetadataFile {
+        version: MetadataVersion,
+        metadata,
     };
     let text = toml::to_string(&file).map_err(|source| LibraryError::MetaWrite {
         path: path.clone(),
@@ -30,21 +33,21 @@ pub(crate) fn write_meta(directory: &Path, meta: &DocumentMeta) -> Result<(), Li
 }
 
 #[derive(Serialize, Deserialize)]
-struct MetaFile<M> {
-    version: MetaVersion,
+struct MetadataFile<M> {
+    version: MetadataVersion,
     #[serde(flatten)]
-    meta: M,
+    metadata: M,
 }
 
-struct MetaVersion;
+struct MetadataVersion;
 
-impl Serialize for MetaVersion {
+impl Serialize for MetadataVersion {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_u32(META_VERSION)
     }
 }
 
-impl<'de> Deserialize<'de> for MetaVersion {
+impl<'de> Deserialize<'de> for MetadataVersion {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         match u32::deserialize(deserializer)? {
             META_VERSION => Ok(Self),
@@ -76,7 +79,7 @@ mod tests {
         }
     }
 
-    fn bare_meta() -> DocumentMeta {
+    fn bare_metadata() -> DocumentMeta {
         DocumentMeta {
             id: DocumentId::new(at(1_000)),
             title: "Notes".to_owned(),
@@ -92,7 +95,7 @@ mod tests {
         }
     }
 
-    fn full_meta() -> DocumentMeta {
+    fn full_metadata() -> DocumentMeta {
         let keys = ["a", "b"].map(|digit| digit.repeat(64).parse().unwrap());
         DocumentMeta {
             format: TextFormat::Markdown,
@@ -109,44 +112,44 @@ mod tests {
                 format: ExportFormat::Ogg,
                 at: at(2_000),
             }),
-            ..bare_meta()
+            ..bare_metadata()
         }
     }
 
     fn rewrite(directory: &Path, from: &str, to: &str) {
-        let path = paths::meta_path(directory);
+        let path = paths::metadata_path(directory);
         let text = fs::read_to_string(&path).unwrap().replacen(from, to, 1);
         fs::write(path, text).unwrap();
     }
 
     #[test]
-    fn meta_round_trips_when_written_and_read() {
+    fn metadata_round_trips_when_written_and_read() {
         let directory = tempfile::tempdir().unwrap();
-        let meta = full_meta();
+        let metadata = full_metadata();
 
-        write_meta(directory.path(), &meta).unwrap();
-        let read = read_meta(directory.path()).unwrap();
+        write_metadata(directory.path(), &metadata).unwrap();
+        let read = read_metadata(directory.path()).unwrap();
 
-        assert_eq!(read, meta);
+        assert_eq!(read, metadata);
     }
 
     #[test]
-    fn meta_round_trips_when_options_absent() {
+    fn metadata_round_trips_when_options_absent() {
         let directory = tempfile::tempdir().unwrap();
-        let meta = bare_meta();
+        let metadata = bare_metadata();
 
-        write_meta(directory.path(), &meta).unwrap();
-        let read = read_meta(directory.path()).unwrap();
+        write_metadata(directory.path(), &metadata).unwrap();
+        let read = read_metadata(directory.path()).unwrap();
 
-        assert_eq!(read, meta);
+        assert_eq!(read, metadata);
     }
 
     #[test]
-    fn meta_file_has_version_and_text_forms() {
+    fn metadata_file_has_version_and_text_forms() {
         let directory = tempfile::tempdir().unwrap();
 
-        write_meta(directory.path(), &full_meta()).unwrap();
-        let text = fs::read_to_string(paths::meta_path(directory.path())).unwrap();
+        write_metadata(directory.path(), &full_metadata()).unwrap();
+        let text = fs::read_to_string(paths::metadata_path(directory.path())).unwrap();
 
         assert!(text.starts_with("version = 1\n"), "{text}");
         assert!(text.contains("format = \"markdown\""), "{text}");
@@ -158,32 +161,32 @@ mod tests {
     }
 
     #[test]
-    fn read_meta_fails_when_version_unknown() {
+    fn read_metadata_fails_when_version_unknown() {
         let directory = tempfile::tempdir().unwrap();
-        write_meta(directory.path(), &bare_meta()).unwrap();
+        write_metadata(directory.path(), &bare_metadata()).unwrap();
         rewrite(directory.path(), "version = 1", "version = 2");
 
-        let result = read_meta(directory.path());
+        let result = read_metadata(directory.path());
 
         assert!(matches!(result, Err(LibraryError::MetaRead { .. })));
     }
 
     #[test]
-    fn read_meta_fails_when_field_invalid() {
+    fn read_metadata_fails_when_field_invalid() {
         let directory = tempfile::tempdir().unwrap();
-        write_meta(directory.path(), &bare_meta()).unwrap();
+        write_metadata(directory.path(), &bare_metadata()).unwrap();
         rewrite(directory.path(), "format = \"plain\"", "format = \"rtf\"");
 
-        let result = read_meta(directory.path());
+        let result = read_metadata(directory.path());
 
         assert!(matches!(result, Err(LibraryError::MetaRead { .. })));
     }
 
     #[test]
-    fn read_meta_fails_when_file_absent() {
+    fn read_metadata_fails_when_file_absent() {
         let directory = tempfile::tempdir().unwrap();
 
-        let result = read_meta(directory.path());
+        let result = read_metadata(directory.path());
 
         assert!(matches!(result, Err(LibraryError::Io { .. })));
     }

@@ -4,7 +4,7 @@ use std::time::Duration;
 use antenna_core::{ExportFormat, Language, TextHash};
 use jiff::Timestamp;
 
-use crate::meta_file::write_meta;
+use crate::metadata_file::write_metadata;
 use crate::{
     DocumentId, DocumentMeta, ExportRecord, Library, LibraryError, SegmentKey, SegmentList,
     StoredVoice,
@@ -20,11 +20,11 @@ impl Library {
     /// `document.toml` cannot be written.
     pub fn rename(&self, id: DocumentId, title: &str, now: Timestamp) -> Result<(), LibraryError> {
         let title = parse_title(title)?;
-        self.change(id, |meta| {
+        self.change(id, |metadata| {
             Some(DocumentMeta {
                 title,
                 modified: now,
-                ..meta.clone()
+                ..metadata.clone()
             })
         })
     }
@@ -42,15 +42,15 @@ impl Library {
         voice: StoredVoice,
         now: Timestamp,
     ) -> Result<(), LibraryError> {
-        self.change(id, |meta| {
-            if meta.voice.as_ref() == Some(&voice) {
+        self.change(id, |metadata| {
+            if metadata.voice.as_ref() == Some(&voice) {
                 return None;
             }
             Some(DocumentMeta {
                 voice: Some(voice),
                 segments: None,
                 modified: now,
-                ..meta.clone()
+                ..metadata.clone()
             })
         })
     }
@@ -66,10 +66,10 @@ impl Library {
         id: DocumentId,
         language: Option<Language>,
     ) -> Result<(), LibraryError> {
-        self.change(id, |meta| {
-            (meta.language != language).then(|| DocumentMeta {
+        self.change(id, |metadata| {
+            (metadata.language != language).then(|| DocumentMeta {
                 language,
-                ..meta.clone()
+                ..metadata.clone()
             })
         })
     }
@@ -89,11 +89,11 @@ impl Library {
         voice: &StoredVoice,
         keys: Vec<SegmentKey>,
     ) -> Result<(), LibraryError> {
-        self.change(id, |meta| {
-            if !meta.is_for_job(text_hash, voice) {
+        self.change(id, |metadata| {
+            if !metadata.is_for_job(text_hash, voice) {
                 return None;
             }
-            let is_recorded = meta
+            let is_recorded = metadata
                 .segments
                 .as_ref()
                 .is_some_and(|list| list.is_for(text_hash, voice) && list.keys == keys);
@@ -109,7 +109,7 @@ impl Library {
             };
             Some(DocumentMeta {
                 segments: Some(segments),
-                ..meta.clone()
+                ..metadata.clone()
             })
         })
     }
@@ -128,9 +128,9 @@ impl Library {
         voice: &StoredVoice,
         duration: Duration,
     ) -> Result<(), LibraryError> {
-        self.change(id, |meta| {
-            let list = meta.segments.as_ref()?;
-            if !list.is_for(text_hash, voice) || !meta.is_for_job(text_hash, voice) {
+        self.change(id, |metadata| {
+            let list = metadata.segments.as_ref()?;
+            if !list.is_for(text_hash, voice) || !metadata.is_for_job(text_hash, voice) {
                 return None;
             }
             let segments = SegmentList {
@@ -140,7 +140,7 @@ impl Library {
             };
             Some(DocumentMeta {
                 segments: Some(segments),
-                ..meta.clone()
+                ..metadata.clone()
             })
         })
     }
@@ -157,10 +157,10 @@ impl Library {
         format: ExportFormat,
         now: Timestamp,
     ) -> Result<(), LibraryError> {
-        self.change(id, |meta| {
+        self.change(id, |metadata| {
             Some(DocumentMeta {
                 last_export: Some(ExportRecord { format, at: now }),
-                ..meta.clone()
+                ..metadata.clone()
             })
         })
     }
@@ -172,10 +172,10 @@ impl Library {
     /// Returns [`LibraryError::NotFound`] if no document has the id, and [`LibraryError::Io`] or
     /// [`LibraryError::MetaWrite`] if `document.toml` cannot be written.
     pub fn mark_opened(&self, id: DocumentId, now: Timestamp) -> Result<(), LibraryError> {
-        self.change(id, |meta| {
+        self.change(id, |metadata| {
             Some(DocumentMeta {
                 opened: now,
-                ..meta.clone()
+                ..metadata.clone()
             })
         })
     }
@@ -186,9 +186,9 @@ impl Library {
         self.index.set_progress(id, progress);
     }
 
-    pub(crate) fn commit(&self, meta: DocumentMeta) -> Result<Arc<DocumentMeta>, LibraryError> {
-        write_meta(&self.directory(meta.id), &meta)?;
-        self.index.replace(meta)
+    pub(crate) fn commit(&self, metadata: DocumentMeta) -> Result<Arc<DocumentMeta>, LibraryError> {
+        write_metadata(&self.directory(metadata.id), &metadata)?;
+        self.index.replace(metadata)
     }
 
     pub(crate) fn change(
@@ -196,8 +196,8 @@ impl Library {
         id: DocumentId,
         edit: impl FnOnce(&DocumentMeta) -> Option<DocumentMeta>,
     ) -> Result<(), LibraryError> {
-        let meta = self.index.meta(id)?;
-        if let Some(changed) = edit(&meta) {
+        let metadata = self.index.metadata(id)?;
+        if let Some(changed) = edit(&metadata) {
             self.commit(changed)?;
         }
         Ok(())

@@ -45,7 +45,7 @@ pub(crate) fn document_dir(library_dir: &Path, id: DocumentId) -> PathBuf {
     library_dir.join(id.to_string())
 }
 
-pub(crate) fn meta_path(document_dir: &Path) -> PathBuf {
+pub(crate) fn metadata_path(document_dir: &Path) -> PathBuf {
     document_dir.join(META_FILE_NAME)
 }
 

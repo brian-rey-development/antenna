@@ -26,16 +26,16 @@ fn status_is_draft_when_meta_is_older_than_text() {
 }
 
 #[test]
-fn load_stores_text_hash_when_text_file_is_newer_than_meta() {
+fn load_stores_text_hash_when_text_file_is_newer_than_metadata() {
     let (root, library) = library();
     let id = library.create("Notes", &plain("Hello"), at(100)).unwrap();
     fs::write(document_dir(&root, id).join("text.txt"), "Hello again").unwrap();
     let reopened = reopen(&root);
 
     reopened.load(id).unwrap();
-    let meta = reopen(&root).load(id).unwrap().0;
+    let metadata = reopen(&root).load(id).unwrap().0;
 
-    assert_eq!(meta.text_hash, text_hash(&plain("Hello again")));
+    assert_eq!(metadata.text_hash, text_hash(&plain("Hello again")));
 }
 
 #[test]

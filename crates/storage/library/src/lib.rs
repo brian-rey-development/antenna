@@ -10,7 +10,7 @@ mod error;
 mod gc;
 mod index;
 mod library;
-mod meta_file;
+mod metadata_file;
 mod paths;
 mod period;
 mod search;

@@ -16,7 +16,7 @@ pub const RECENT_LIMIT: usize = 4;
 
 #[derive(Debug)]
 struct Entry {
-    meta: Arc<DocumentMeta>,
+    metadata: Arc<DocumentMeta>,
     folded_title: Arc<str>,
     folded_text: Option<Arc<str>>,
     progress: Option<(u32, u32)>,
@@ -25,8 +25,8 @@ struct Entry {
 impl Entry {
     fn summary(&self) -> DocumentSummary {
         DocumentSummary {
-            meta: Arc::clone(&self.meta),
-            status: status(&self.meta, self.progress),
+            meta: Arc::clone(&self.metadata),
+            status: status(&self.metadata, self.progress),
         }
     }
 
@@ -85,33 +85,36 @@ impl Index {
         self.state.write().unwrap_or_else(PoisonError::into_inner)
     }
 
-    pub(crate) fn insert(&self, meta: DocumentMeta, folded_text: Option<String>) {
+    pub(crate) fn insert(&self, metadata: DocumentMeta, folded_text: Option<String>) {
         let entry = Entry {
-            folded_title: fold(&meta.title).into(),
-            meta: Arc::new(meta),
+            folded_title: fold(&metadata.title).into(),
+            metadata: Arc::new(metadata),
             folded_text: folded_text.map(Arc::from),
             progress: None,
         };
-        self.write().entries.insert(entry.meta.id, entry);
+        self.write().entries.insert(entry.metadata.id, entry);
     }
 
-    pub(crate) fn meta(&self, id: DocumentId) -> Result<Arc<DocumentMeta>, LibraryError> {
+    pub(crate) fn metadata(&self, id: DocumentId) -> Result<Arc<DocumentMeta>, LibraryError> {
         let state = self.read();
         let entry = state.entries.get(&id).ok_or(LibraryError::NotFound(id))?;
-        Ok(Arc::clone(&entry.meta))
+        Ok(Arc::clone(&entry.metadata))
     }
 
-    pub(crate) fn replace(&self, meta: DocumentMeta) -> Result<Arc<DocumentMeta>, LibraryError> {
-        let id = meta.id;
-        let folded_title: Arc<str> = fold(&meta.title).into();
+    pub(crate) fn replace(
+        &self,
+        metadata: DocumentMeta,
+    ) -> Result<Arc<DocumentMeta>, LibraryError> {
+        let id = metadata.id;
+        let folded_title: Arc<str> = fold(&metadata.title).into();
         let mut state = self.write();
         let entry = state
             .entries
             .get_mut(&id)
             .ok_or(LibraryError::NotFound(id))?;
-        entry.meta = Arc::new(meta);
+        entry.metadata = Arc::new(metadata);
         entry.folded_title = folded_title;
-        Ok(Arc::clone(&entry.meta))
+        Ok(Arc::clone(&entry.metadata))
     }
 
     pub(crate) fn remove(&self, id: DocumentId) {
@@ -135,7 +138,7 @@ impl Index {
         let entries = state.entries.values();
         entries
             .filter(|entry| entry.folded_text.is_none())
-            .map(|entry| Arc::clone(&entry.meta))
+            .map(|entry| Arc::clone(&entry.metadata))
             .collect()
     }
 
@@ -168,7 +171,7 @@ impl Index {
     pub(crate) fn recent(&self) -> Vec<DocumentSummary> {
         let state = self.read();
         let mut entries: Vec<&Entry> = state.entries.values().collect();
-        entries.sort_by_key(|entry| Reverse((entry.meta.opened, entry.meta.id)));
+        entries.sort_by_key(|entry| Reverse((entry.metadata.opened, entry.metadata.id)));
         entries
             .into_iter()
             .take(RECENT_LIMIT)
@@ -182,8 +185,8 @@ impl Index {
 
     pub(crate) fn used_keys(&self) -> HashSet<SegmentKey> {
         let state = self.read();
-        let metas = state.entries.values().map(|entry| &entry.meta);
-        let lists = metas.filter_map(|meta| meta.segments.as_ref());
+        let metadatas = state.entries.values().map(|entry| &entry.metadata);
+        let lists = metadatas.filter_map(|metadata| metadata.segments.as_ref());
         lists.flat_map(|list| list.keys.iter().copied()).collect()
     }
 }
