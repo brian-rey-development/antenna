@@ -127,8 +127,12 @@ mod tests {
     }
 
     #[test]
-    fn sentences_split_when_marker_rules_apply() {
+    fn sentences_split_when_end_marker_follows() {
         assert_eq!(texts_of("One<0}"), ["One", "<0}"]);
+    }
+
+    #[test]
+    fn sentences_split_when_start_marker_precedes() {
         assert_eq!(texts_of("{0>One"), ["{0>", "One"]);
     }
 

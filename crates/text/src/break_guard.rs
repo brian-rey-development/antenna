@@ -33,8 +33,9 @@ mod tests {
     const RULE_OPEN: &str = "<rule break=\"yes\">";
     const RULE_CLOSE: &str = "</rule>";
 
-    /// The characters that the part of a pattern at the top level needs, one set for each element
-    /// that the match must contain. A set is empty if the element is not a literal.
+    /// Returns one set of characters for each element that a match of the pattern must contain. A
+    /// set is empty if the element is not a literal. The result is `None` if the pattern has an
+    /// alternative at the top level.
     fn required_sets(pattern: &str) -> Option<Vec<Vec<char>>> {
         let mut characters = pattern.chars().peekable();
         let mut sets = Vec::new();
