@@ -180,6 +180,14 @@ fn prepare_gives_empty_range_when_code_span_with_edge_spaces_holds_two_sentences
 }
 
 #[test]
+fn prepare_drops_byte_order_mark_when_document_starts_with_one() {
+    let found = segments("\u{feff}One two. Three.", TextFormat::Plain, Language::En);
+
+    assert_eq!(texts(&found), ["One two.", "Three."]);
+    assert_eq!(found[0].source(), 3..11);
+}
+
+#[test]
 fn prepare_splits_sentence_when_longer_than_max_chars() {
     let document =
         Document::new("aaaa bbbb cccc, dddd eeee ffff gggg.", TextFormat::Plain).unwrap();

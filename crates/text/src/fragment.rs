@@ -1,8 +1,10 @@
 use std::ops::Range;
 
 pub(crate) const SPACE: char = ' ';
+const BYTE_ORDER_MARK: char = '\u{feff}';
 
-/// A part of the prose with no whitespace at its ends, and its byte offset in the prose.
+/// A part of the prose with no whitespace at its ends, and its byte offset in the prose. The
+/// byte order mark U+FEFF is not part of a fragment.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Fragment<'a> {
     text: &'a str,
@@ -11,11 +13,11 @@ pub(crate) struct Fragment<'a> {
 
 impl<'a> Fragment<'a> {
     /// Makes a fragment of the text that starts at the byte offset `start` of the prose. The
-    /// fragment drops the whitespace at both ends of the text.
+    /// fragment drops the whitespace and the byte order marks at both ends of the text.
     pub(crate) fn new(text: &'a str, start: usize) -> Self {
-        let content = text.trim_start();
+        let content = text.trim_start_matches(is_blank);
         Self {
-            text: content.trim_end(),
+            text: content.trim_end_matches(is_blank),
             start: start + text.len() - content.len(),
         }
     }
@@ -38,11 +40,13 @@ impl<'a> Fragment<'a> {
     }
 
     /// Returns each character of the text with its byte offset, where each whitespace run is one
-    /// space at the offset of its first whitespace character.
+    /// space at the offset of its first whitespace character. The byte order marks are not in the
+    /// result.
     pub(crate) fn collapsed_indices(self) -> impl Iterator<Item = (usize, char)> + 'a {
         let mut is_after_space = false;
         self.text
             .char_indices()
+            .filter(|(_, character)| *character != BYTE_ORDER_MARK)
             .filter_map(move |(offset, character)| {
                 let is_space = character.is_whitespace();
                 let is_kept = !(is_space && is_after_space);
@@ -61,6 +65,10 @@ impl<'a> Fragment<'a> {
     pub(crate) fn exceeds(self, limit: usize) -> bool {
         self.collapsed().nth(limit).is_some()
     }
+}
+
+fn is_blank(character: char) -> bool {
+    character.is_whitespace() || character == BYTE_ORDER_MARK
 }
 
 #[cfg(test)]
@@ -117,5 +125,22 @@ mod tests {
 
         assert!(fragment.exceeds(4));
         assert!(!fragment.exceeds(5));
+    }
+
+    #[test]
+    fn fragment_drops_byte_order_mark_when_at_ends() {
+        let fragment = Fragment::new("\u{feff} \u{feff}Hello\u{feff}", 0);
+
+        assert_eq!(fragment.text(), "Hello");
+        assert_eq!(fragment.range(), 7..12);
+    }
+
+    #[test]
+    fn fragment_drops_byte_order_mark_when_collapsed_inside_text() {
+        let fragment = Fragment::new("a\u{feff}b \u{feff} c", 0);
+
+        let text: String = fragment.collapsed().collect();
+
+        assert_eq!(text, "ab c");
     }
 }
