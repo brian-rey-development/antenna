@@ -49,7 +49,8 @@ impl<'a> Converter<'a> {
         match event {
             Event::Start(tag) => self.start(&tag),
             Event::End(tag) => self.end(tag),
-            Event::Text(text) | Event::Code(text) => self.push(&text, range),
+            Event::Text(text) => self.push(&text, range),
+            Event::Code(text) => self.push(&text, self.inside_backticks(range)),
             Event::SoftBreak | Event::HardBreak => self.push(SOFT_BREAK_TEXT, range),
             Event::Rule => self.end_block(),
             Event::Html(_)
@@ -101,6 +102,12 @@ impl<'a> Converter<'a> {
         if !is_inline {
             self.end_block();
         }
+    }
+
+    fn inside_backticks(&self, span: Range<usize>) -> Range<usize> {
+        let code = self.source.get(span.clone()).unwrap_or_default();
+        let backticks = code.len() - code.trim_start_matches('`').len();
+        span.start + backticks..span.end - backticks
     }
 
     fn push(&mut self, text: &str, source: Range<usize>) {
@@ -255,6 +262,20 @@ mod tests {
         let prose = convert("a &amp; b \\* c");
 
         assert_eq!(prose.map().source(2..3), 2..7);
+    }
+
+    #[test]
+    fn prose_maps_to_exact_source_when_inline_code() {
+        let prose = convert("run `ls -l` now");
+
+        assert_eq!(prose.map().source(4..9), 5..10);
+    }
+
+    #[test]
+    fn prose_maps_to_code_edges_when_inline_code_has_edge_spaces() {
+        let prose = convert("run `` ls -l `` now");
+
+        assert_eq!(prose.map().source(4..9), 6..13);
     }
 
     #[test]

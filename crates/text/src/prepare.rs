@@ -13,9 +13,9 @@ use crate::{SegmentLimits, TextError, sentences, split, srx_rules};
 /// The segments are the same for the same arguments. A segment never crosses a block of the
 /// document, for example a heading is always a segment of its own.
 ///
-/// The source range of a segment never overlaps the range of the segment before it. If an earlier
-/// segment already covers a Markdown element of the segment, the range covers only the rest and
-/// can be empty. This occurs for example when one inline code span holds two sentences.
+/// The source range of a segment never overlaps the range of the segment before it. An inline code
+/// span with a space at both ends or a line end has no exact map, because the parser changes its
+/// text. If such a span holds two sentences, the second range is empty.
 ///
 /// # Errors
 ///

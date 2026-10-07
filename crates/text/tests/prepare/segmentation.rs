@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use antenna_core::{Document, Language, SegmentIndex, TextFormat};
+use antenna_core::{Document, Language, Segment, SegmentIndex, TextFormat};
 use antenna_text::{FIRST_SEGMENT_CHARS, SegmentLimits, TextError, prepare};
 
 use crate::support::{ABBREVIATIONS, limits, segments, texts};
@@ -136,21 +136,47 @@ fn prepare_splits_sentences_when_line_ends_with_space() {
 }
 
 #[test]
-fn prepare_starts_second_range_after_first_when_code_span_holds_two_sentences() {
+fn prepare_maps_each_sentence_when_code_span_holds_two_sentences() {
     let found = segments("Use `One. Two` now.", TextFormat::Markdown, Language::En);
 
     assert_eq!(texts(&found), ["Use One.", "Two now."]);
-    assert_eq!(found[0].source(), 0..14);
-    assert_eq!(found[1].source(), 14..19);
+    assert_eq!(found[0].source(), 0..9);
+    assert_eq!(found[1].source(), 10..19);
 }
 
 #[test]
-fn prepare_gives_empty_range_when_code_span_holds_three_sentences() {
+fn prepare_maps_each_sentence_when_code_span_holds_three_sentences() {
     let found = segments("`One. Two. Three`", TextFormat::Markdown, Language::En);
 
     assert_eq!(texts(&found), ["One.", "Two.", "Three"]);
+    let ranges: Vec<_> = found.iter().map(Segment::source).collect();
+    assert_eq!(ranges, [1..5, 6..10, 11..16]);
+}
+
+#[test]
+fn prepare_maps_each_sentence_when_code_span_starts_mid_sentence() {
+    let found = segments("Use `a. B. C` end.", TextFormat::Markdown, Language::En);
+
+    assert_eq!(texts(&found), ["Use a. B.", "C end."]);
+    let ranges: Vec<_> = found.iter().map(Segment::source).collect();
+    assert_eq!(ranges, [0..10, 11..18]);
+}
+
+#[test]
+fn prepare_maps_each_sentence_when_code_span_has_long_backtick_fence() {
+    let found = segments("``One. `Two` Three``", TextFormat::Markdown, Language::En);
+
+    let ranges: Vec<_> = found.iter().map(Segment::source).collect();
+    assert_eq!(ranges, [2..6, 7..18]);
+}
+
+#[test]
+fn prepare_gives_empty_range_when_code_span_with_edge_spaces_holds_two_sentences() {
+    let found = segments("`` One. Two ``", TextFormat::Markdown, Language::En);
+
+    assert_eq!(texts(&found), ["One.", "Two"]);
+    assert_eq!(found[0].source(), 2..12);
     assert!(found[1].source().is_empty());
-    assert!(found[2].source().is_empty());
 }
 
 #[test]
