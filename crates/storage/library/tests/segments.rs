@@ -70,6 +70,12 @@ mod tests {
         names
     }
 
+    fn ramp() -> Vec<f32> {
+        (-100..=100_i16)
+            .map(|step| f32::from(step) / 100.0)
+            .collect()
+    }
+
     fn store_segment(store: &SegmentStore, key: SegmentKey, samples: &[f32]) -> Duration {
         let mut writer = store.writer(key, RATE).unwrap();
         writer.write(samples).unwrap();
@@ -151,14 +157,11 @@ mod tests {
     #[test]
     fn segment_round_trips_when_written_and_read() {
         let (_root, store) = store();
-        let samples: Vec<f32> = (-100..=100_i16)
-            .map(|step| f32::from(step) / 100.0)
-            .collect();
+        let samples = ramp();
 
-        let duration = store_segment(&store, key('a'), &samples);
+        store_segment(&store, key('a'), &samples);
         let stored = store.read(&key('a')).unwrap();
 
-        assert_eq!(stored.rate, RATE);
         assert_eq!(stored.samples.len(), samples.len());
         for (read, written) in stored.samples.iter().zip(&samples) {
             assert!(
@@ -166,8 +169,36 @@ mod tests {
                 "{read} vs {written}"
             );
         }
+    }
+
+    #[test]
+    fn segment_keeps_sample_rate_when_stored() {
+        let (_root, store) = store();
+        store_segment(&store, key('a'), &ramp());
+
+        let stored = store.read(&key('a')).unwrap();
+
+        assert_eq!(stored.rate, RATE);
+    }
+
+    #[test]
+    fn commit_returns_duration_of_samples_when_segment_written() {
+        let (_root, store) = store();
+        let samples = ramp();
+
+        let duration = store_segment(&store, key('a'), &samples);
+
         assert_eq!(duration, RATE.duration_of(samples.len() as u64));
-        assert_eq!(store.duration(&key('a')).unwrap(), duration);
+    }
+
+    #[test]
+    fn duration_matches_commit_when_segment_stored() {
+        let (_root, store) = store();
+        let committed = store_segment(&store, key('a'), &ramp());
+
+        let duration = store.duration(&key('a')).unwrap();
+
+        assert_eq!(duration, committed);
     }
 
     #[test]

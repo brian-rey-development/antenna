@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use antenna_core::{ExportFormat, Quality};
-use antenna_library::{Status, StoredVoice, text_hash};
+use antenna_library::{DocumentId, Library, Status, StoredVoice, text_hash};
+use tempfile::TempDir;
 
 use super::support::{at, complete, foreign_id, key, library, plain, reopen, status_of, voice};
 
@@ -91,9 +92,8 @@ fn record_segments_ignored_when_text_hash_differs() {
     assert!(library.load(id).unwrap().0.segments.is_none());
 }
 
-#[test]
-fn record_complete_ignored_when_text_hash_differs() {
-    let (_root, library) = library();
+fn document_with_late_record_complete() -> (TempDir, Library, DocumentId) {
+    let (root, library) = library();
     let id = library.create("Notes", &plain("Hello"), at(100)).unwrap();
     let old_hash = text_hash(&plain("Hello"));
     library.set_voice(id, alba(), at(200)).unwrap();
@@ -103,22 +103,28 @@ fn record_complete_ignored_when_text_hash_differs() {
     library
         .save_text(id, &plain("Hello again"), at(300))
         .unwrap();
-
     library
         .record_complete(id, old_hash, &alba(), Duration::from_secs(3))
         .unwrap();
+    (root, library, id)
+}
 
-    assert_eq!(status_of(&library, id), Status::Draft);
-    assert!(
-        !library
-            .load(id)
-            .unwrap()
-            .0
-            .segments
-            .clone()
-            .unwrap()
-            .is_complete
-    );
+#[test]
+fn record_complete_ignored_when_text_hash_differs() {
+    let (_root, library, id) = document_with_late_record_complete();
+
+    let list = library.load(id).unwrap().0.segments.clone().unwrap();
+
+    assert!(!list.is_complete);
+}
+
+#[test]
+fn status_is_draft_when_record_complete_ignored_for_old_text() {
+    let (_root, library, id) = document_with_late_record_complete();
+
+    let status = status_of(&library, id);
+
+    assert_eq!(status, Status::Draft);
 }
 
 #[test]

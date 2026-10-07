@@ -60,6 +60,8 @@ impl<'de> Deserialize<'de> for MetadataVersion {
 
 #[cfg(test)]
 mod tests {
+    use std::io::ErrorKind;
+
     use super::*;
     use crate::fixtures::{bare_metadata, full_metadata};
 
@@ -127,6 +129,18 @@ mod tests {
         let result = read_metadata(directory.path());
 
         assert!(matches!(result, Err(LibraryError::MetaRead { .. })));
+    }
+
+    #[test]
+    fn read_metadata_fails_when_file_is_not_utf8() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(paths::metadata_path(directory.path()), [0xff, 0xfe, 0x00]).unwrap();
+
+        let result = read_metadata(directory.path());
+
+        assert!(
+            matches!(&result, Err(LibraryError::Io { source, .. }) if source.kind() == ErrorKind::InvalidData)
+        );
     }
 
     #[test]

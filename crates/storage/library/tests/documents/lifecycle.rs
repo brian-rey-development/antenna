@@ -23,10 +23,17 @@ fn document_round_trips_when_created_and_loaded() {
         (metadata.created, metadata.modified, metadata.opened),
         (at(1_000), at(1_000), at(1_000))
     );
-    assert_eq!(
-        (metadata.voice.is_none(), metadata.segments.is_none()),
-        (true, true)
-    );
+}
+
+#[test]
+fn create_leaves_voice_and_segments_empty_when_document_new() {
+    let (_root, library) = library();
+
+    let id = library.create("Notes", &plain("Hello"), at(1_000)).unwrap();
+    let metadata = library.load(id).unwrap().0;
+
+    assert!(metadata.voice.is_none());
+    assert!(metadata.segments.is_none());
 }
 
 #[test]
@@ -44,13 +51,21 @@ fn document_persists_when_library_reopened() {
 
 #[test]
 fn create_fails_when_title_is_blank() {
-    let (root, library) = library();
+    let (_root, library) = library();
 
     for title in ["", "  ", "\t\n"] {
         let result = library.create(title, &plain("Hello"), at(1_000));
 
         assert!(matches!(result, Err(LibraryError::EmptyTitle)), "{title:?}");
     }
+}
+
+#[test]
+fn create_leaves_no_document_when_title_is_blank() {
+    let (root, library) = library();
+
+    library.create(" ", &plain("Hello"), at(1_000)).unwrap_err();
+
     assert_eq!(library.count(), 0);
     assert_eq!(
         fs::read_dir(root.path().join("library")).unwrap().count(),
@@ -88,6 +103,17 @@ fn load_fails_when_text_file_is_blank() {
     let result = library.load(id);
 
     assert!(matches!(result, Err(LibraryError::EmptyText { .. })));
+}
+
+#[test]
+fn load_fails_when_text_file_is_not_utf8() {
+    let (root, library) = library();
+    let id = library.create("Notes", &plain("Hello"), at(1_000)).unwrap();
+    fs::write(document_dir(&root, id).join("text.txt"), [0xff, 0xfe]).unwrap();
+
+    let result = library.load(id);
+
+    assert!(matches!(result, Err(LibraryError::Io { .. })));
 }
 
 #[test]

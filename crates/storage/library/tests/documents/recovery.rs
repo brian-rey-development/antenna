@@ -20,7 +20,12 @@ fn status_is_draft_when_meta_is_older_than_text() {
         &document,
         &voice("en-alba", Quality::Balanced),
     );
-    fs::write(document_dir(&root, id).join("text.txt"), "Hello again").unwrap();
+    let metadata_path = document_dir(&root, id).join("document.toml");
+    let old_metadata = fs::read(&metadata_path).unwrap();
+    library
+        .save_text(id, &plain("Hello again"), at(300))
+        .unwrap();
+    fs::write(&metadata_path, old_metadata).unwrap();
     let reopened = reopen(&root);
 
     reopened.load(id).unwrap();
@@ -120,4 +125,16 @@ fn search_matches_new_text_when_load_repairs_metadata() {
 
     assert_eq!(titles(&reopened, "cafe"), ["Plan"]);
     assert_eq!(titles(&reopened, "leche"), Vec::<String>::new());
+}
+
+#[test]
+fn open_skips_document_when_metadata_is_not_utf8() {
+    let (root, library) = library();
+    let id = library.create("Notes", &plain("Hello"), at(100)).unwrap();
+    fs::write(document_dir(&root, id).join("document.toml"), [0xff, 0xfe]).unwrap();
+
+    let reopened = reopen(&root);
+
+    assert_eq!(reopened.count(), 0);
+    assert_eq!(reopened.skipped(), [document_dir(&root, id)]);
 }

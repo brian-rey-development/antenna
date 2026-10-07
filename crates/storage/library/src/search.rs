@@ -59,6 +59,19 @@ mod tests {
     }
 
     #[test]
+    fn fold_is_idempotent_for_each_unicode_scalar_value() {
+        let scalars = (0..=char::MAX as u32).filter_map(char::from_u32);
+
+        for scalar in scalars {
+            for text in [scalar.to_string(), format!("a{scalar} b")] {
+                let once = fold(&text);
+
+                assert_eq!(fold(&once), once, "text {text:?}");
+            }
+        }
+    }
+
+    #[test]
     fn matches_requires_every_term() {
         let title = fold("Weekly plan");
         let text = fold("Buy milk and eggs");

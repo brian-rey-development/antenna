@@ -57,31 +57,38 @@ fn gc_deletes_temp_files_when_older_than_one_hour() {
     let (root, library, id) = library_with_document();
     let directory = document_dir(&root, id);
     let old = aged_file(&directory, "document.toml.tmp-1-0", HOUR * 2);
-    let young = aged_file(&directory, "text.txt.tmp-1-1", HOUR / 2);
-    let exact = aged_file(&directory, "text.txt.tmp-1-2", HOUR);
     let old_segment = aged_file(&root.path().join("segments"), "a.wav.tmp-2-0", HOUR * 3);
 
     let report = library.collect_garbage(now()).unwrap();
 
     assert!(!old.exists() && !old_segment.exists());
+    assert_eq!(report.deleted_files, 2);
+}
+
+#[test]
+fn gc_keeps_temp_files_when_not_older_than_one_hour() {
+    let (root, library, id) = library_with_document();
+    let directory = document_dir(&root, id);
+    let young = aged_file(&directory, "text.txt.tmp-1-1", HOUR / 2);
+    let exact = aged_file(&directory, "text.txt.tmp-1-2", HOUR);
+
+    let report = library.collect_garbage(now()).unwrap();
+
     assert!(young.is_file() && exact.is_file());
     assert!(directory.join("document.toml").is_file());
-    assert_eq!(report.deleted_files, 2);
+    assert_eq!(report, GcReport::default());
 }
 
 #[test]
 fn gc_deletes_only_unused_old_segments() {
     let (_root, library, id) = library_with_document();
     record_keys(&library, id, vec![key('1')]);
-    let old_used = store_segment(&library, key('1'), HOUR * 2);
+    store_segment(&library, key('1'), HOUR * 2);
     let old_unused = store_segment(&library, key('2'), HOUR * 2);
-    let young_unused = store_segment(&library, key('3'), HOUR / 2);
-    let exact_unused = store_segment(&library, key('4'), HOUR);
     let size = fs::metadata(&old_unused).unwrap().len();
 
     let report = library.collect_garbage(now()).unwrap();
 
-    assert!(old_used.is_file() && young_unused.is_file() && exact_unused.is_file());
     assert!(!old_unused.exists());
     assert_eq!(
         report,
@@ -90,6 +97,30 @@ fn gc_deletes_only_unused_old_segments() {
             deleted_bytes: size
         }
     );
+}
+
+#[test]
+fn gc_keeps_segment_when_document_uses_key() {
+    let (_root, library, id) = library_with_document();
+    record_keys(&library, id, vec![key('1')]);
+    let old_used = store_segment(&library, key('1'), HOUR * 2);
+
+    let report = library.collect_garbage(now()).unwrap();
+
+    assert!(old_used.is_file());
+    assert_eq!(report, GcReport::default());
+}
+
+#[test]
+fn gc_keeps_segment_when_not_older_than_one_hour() {
+    let (_root, library, _id) = library_with_document();
+    let young_unused = store_segment(&library, key('3'), HOUR / 2);
+    let exact_unused = store_segment(&library, key('4'), HOUR);
+
+    let report = library.collect_garbage(now()).unwrap();
+
+    assert!(young_unused.is_file() && exact_unused.is_file());
+    assert_eq!(report, GcReport::default());
 }
 
 #[test]

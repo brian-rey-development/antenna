@@ -1,7 +1,8 @@
 use std::fs;
 
 use antenna_core::{ExportFormat, Quality};
-use antenna_library::{Filter, Library, LibraryError, Period, RECENT_LIMIT};
+use antenna_library::{Filter, Library, LibraryError, Period};
+use tempfile::TempDir;
 
 use super::support::{
     at, complete, create_all, document_dir, library, now, plain, reopen, sorted_titles, titles,
@@ -12,19 +13,42 @@ fn found(library: &Library, query: &str) -> Vec<String> {
     titles(&library.list(Filter::All, query, &now()))
 }
 
-#[test]
-fn search_matches_when_accents_differ() {
-    let (_root, library) = library();
+fn library_with_two_titles() -> (TempDir, Library) {
+    let (root, library) = library();
     library
         .create("Canción de cuna", &plain("Duerme"), at(100))
         .unwrap();
     library
         .create("Weekly plan", &plain("Buy milk"), at(200))
         .unwrap();
+    (root, library)
+}
 
-    assert_eq!(found(&library, "CANCION"), ["Canción de cuna"]);
-    assert_eq!(found(&library, "cancion de"), ["Canción de cuna"]);
-    assert_eq!(found(&library, "weekly xyz"), Vec::<String>::new());
+#[test]
+fn search_matches_when_accents_differ() {
+    let (_root, library) = library_with_two_titles();
+
+    let titles = found(&library, "CANCION");
+
+    assert_eq!(titles, ["Canción de cuna"]);
+}
+
+#[test]
+fn search_matches_when_query_has_two_terms() {
+    let (_root, library) = library_with_two_titles();
+
+    let titles = found(&library, "cancion de");
+
+    assert_eq!(titles, ["Canción de cuna"]);
+}
+
+#[test]
+fn search_excludes_document_when_one_term_is_missing() {
+    let (_root, library) = library_with_two_titles();
+
+    let titles = found(&library, "weekly xyz");
+
+    assert_eq!(titles, Vec::<String>::new());
 }
 
 #[test]
@@ -116,9 +140,8 @@ fn search_matches_text_when_query_has_accents() {
     assert_eq!(titles, ["Plan"]);
 }
 
-#[test]
-fn filter_keeps_matching_statuses() {
-    let (_root, library) = library();
+fn library_with_each_status() -> (TempDir, Library) {
+    let (root, library) = library();
     let alba = voice("en-alba", Quality::Balanced);
     let [_, running, ready, exported] = ["Draft", "Running", "Ready", "Exported"]
         .map(|title| library.create(title, &plain(title), at(100)).unwrap());
@@ -133,19 +156,38 @@ fn filter_keeps_matching_statuses() {
     library
         .record_export(exported, ExportFormat::Wav, at(300))
         .unwrap();
-
-    let all = ["Draft", "Exported", "Ready", "Running"];
-    assert_eq!(sorted_titles(&library, Filter::All), all);
-    assert_eq!(
-        sorted_titles(&library, Filter::Ready),
-        ["Exported", "Ready"]
-    );
-    assert_eq!(sorted_titles(&library, Filter::Drafts), ["Draft"]);
+    (root, library)
 }
 
 #[test]
-fn groups_follow_period_rules() {
-    let (_root, library) = library();
+fn filter_keeps_matching_statuses_when_filter_is_all() {
+    let (_root, library) = library_with_each_status();
+
+    let titles = sorted_titles(&library, Filter::All);
+
+    assert_eq!(titles, ["Draft", "Exported", "Ready", "Running"]);
+}
+
+#[test]
+fn filter_keeps_matching_statuses_when_filter_is_ready() {
+    let (_root, library) = library_with_each_status();
+
+    let titles = sorted_titles(&library, Filter::Ready);
+
+    assert_eq!(titles, ["Exported", "Ready"]);
+}
+
+#[test]
+fn filter_keeps_matching_statuses_when_filter_is_drafts() {
+    let (_root, library) = library_with_each_status();
+
+    let titles = sorted_titles(&library, Filter::Drafts);
+
+    assert_eq!(titles, ["Draft"]);
+}
+
+fn library_with_dated_documents() -> (TempDir, Library) {
+    let (root, library) = library();
     let documents = [
         ("today", utc(2026, 10, 7)),
         ("monday", utc(2026, 10, 5)),
@@ -155,6 +197,12 @@ fn groups_follow_period_rules() {
         ("last year", utc(2025, 10, 1)),
     ];
     create_all(&library, &documents);
+    (root, library)
+}
+
+#[test]
+fn groups_follow_period_rules() {
+    let (_root, library) = library_with_dated_documents();
 
     let groups = library.list(Filter::All, "", &now());
 
@@ -170,6 +218,14 @@ fn groups_follow_period_rules() {
         groups.iter().map(|group| group.period).collect::<Vec<_>>(),
         periods
     );
+}
+
+#[test]
+fn group_orders_documents_by_newest_modified() {
+    let (_root, library) = library_with_dated_documents();
+
+    let groups = library.list(Filter::All, "", &now());
+
     assert_eq!(titles(&groups[1..2]), ["tuesday", "monday"]);
 }
 
@@ -190,6 +246,5 @@ fn recent_returns_four_newest_opened() {
     let recent = library.recent();
 
     let order: Vec<_> = recent.iter().map(|summary| summary.meta.id).collect();
-    assert_eq!(order.len(), RECENT_LIMIT);
     assert_eq!(order, [ids[2], ids[4], ids[0], ids[3]]);
 }
