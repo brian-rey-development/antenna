@@ -55,7 +55,8 @@ impl ModelStore {
             .sum()
     }
 
-    /// Returns the bytes of all files in the store, partial files included.
+    /// Returns the bytes of all files in the store, partial files included. A root that does not
+    /// exist has no bytes.
     ///
     /// # Errors
     ///
