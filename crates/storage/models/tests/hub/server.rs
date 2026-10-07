@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Cursor, Write};
 use std::net::{TcpListener, TcpStream};
@@ -24,7 +25,7 @@ pub(crate) fn hub_path(artifact: &Artifact) -> String {
 pub(crate) enum Behavior {
     Serve,
     FailFirst(u32),
-    Missing,
+    Status(u16),
     IgnoreRange,
     Redirect(String),
     /// Closes the connection after this many body bytes, on the first request only.
@@ -37,6 +38,7 @@ pub(crate) struct Route {
     pub(crate) behavior: Behavior,
 }
 
+#[derive(Clone)]
 pub(crate) struct Request {
     pub(crate) path: String,
     pub(crate) range: Option<String>,
@@ -46,6 +48,7 @@ pub(crate) struct Request {
 pub(crate) struct TestServer {
     endpoint: String,
     requests: flume::Receiver<Request>,
+    seen: Cell<Vec<Request>>,
     server: Arc<Server>,
     thread: Option<JoinHandle<()>>,
 }
@@ -64,6 +67,7 @@ impl TestServer {
         Self {
             endpoint,
             requests,
+            seen: Cell::new(Vec::new()),
             server,
             thread: Some(thread),
         }
@@ -74,10 +78,15 @@ impl TestServer {
     }
 
     pub(crate) fn requests(&self, path: &str) -> Vec<Request> {
-        self.requests
-            .try_iter()
+        let mut seen = self.seen.take();
+        seen.extend(self.requests.try_iter());
+        let matching = seen
+            .iter()
             .filter(|request| request.path == path)
-            .collect()
+            .cloned()
+            .collect();
+        self.seen.set(seen);
+        matching
     }
 }
 
@@ -140,7 +149,7 @@ impl State {
         match behavior {
             Behavior::Serve | Behavior::FailFirst(0) => ranged(body, range),
             Behavior::IgnoreRange => Response::from_data(body.clone()).with_status_code(OK),
-            Behavior::Missing => empty(NOT_FOUND),
+            Behavior::Status(status) => empty(*status),
             Behavior::FailFirst(remaining) => {
                 *remaining -= 1;
                 empty(SERVICE_UNAVAILABLE)

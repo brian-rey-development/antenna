@@ -122,7 +122,7 @@ mod tests {
     }
 
     #[test]
-    fn progress_stays_below_total_when_download_restarts() {
+    fn progress_stays_at_total_when_download_restarts() {
         let start = Instant::now();
 
         let reports = collect(|reporter| {

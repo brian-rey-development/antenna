@@ -96,7 +96,9 @@ fn has_artifact_false_when_verified_record_missing() {
     fixture.ensure(&[alpha.weights]).unwrap();
     fs::remove_file(fixture.verified(alpha.weights)).unwrap();
 
-    assert!(!fixture.store.has_artifact(alpha.weights));
+    let has_artifact = fixture.store.has_artifact(alpha.weights);
+
+    assert!(!has_artifact);
 }
 
 #[test]
@@ -111,7 +113,9 @@ fn has_artifact_false_when_file_truncated() {
         .set_len(10)
         .unwrap();
 
-    assert!(!fixture.store.has_artifact(alpha.weights));
+    let has_artifact = fixture.store.has_artifact(alpha.weights);
+
+    assert!(!has_artifact);
 }
 
 #[test]
@@ -142,7 +146,9 @@ fn missing_bytes_is_zero_when_artifacts_installed() {
     let alpha = alpha(&fixture);
     fixture.ensure(&[alpha.weights]).unwrap();
 
-    assert_eq!(fixture.store.missing_bytes([alpha.weights]), 0);
+    let missing = fixture.store.missing_bytes([alpha.weights]);
+
+    assert_eq!(missing, 0);
 }
 
 #[test]

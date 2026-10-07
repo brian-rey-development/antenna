@@ -9,8 +9,6 @@ use crate::ModelError;
 use crate::layout::ArtifactPaths;
 
 const HASH_BUFFER_BYTES: usize = 1_048_576;
-const NIBBLE_BITS: u32 = 4;
-const HEX_RADIX: u32 = 16;
 
 /// Checks the partial file of an artifact and makes it the installed file.
 ///
@@ -61,14 +59,7 @@ fn sha256_hex(path: &Path) -> io::Result<String> {
 fn to_hex(bytes: &[u8]) -> String {
     bytes
         .iter()
-        .flat_map(|byte| {
-            [
-                u32::from(*byte) >> NIBBLE_BITS,
-                u32::from(*byte) & (HEX_RADIX - 1),
-            ]
-        })
-        .filter_map(|nibble| char::from_digit(nibble, HEX_RADIX))
-        .collect()
+        .fold(String::new(), |hex, byte| hex + &format!("{byte:02x}"))
 }
 
 #[cfg(test)]

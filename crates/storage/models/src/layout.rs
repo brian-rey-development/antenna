@@ -52,9 +52,19 @@ impl ArtifactPaths {
 
     /// Returns the bytes of the partial file that a download can keep.
     pub(crate) fn resumable_len(&self, extent: Extent) -> u64 {
-        Some(self.partial_len())
-            .filter(|length| *length <= extent.bytes())
-            .unwrap_or(0)
+        let length = self.partial_len();
+        if length <= extent.bytes() { length } else { 0 }
+    }
+
+    /// Turns a file with the declared size but no `.verified` record into a partial file. The
+    /// next hash check can then install it with no download.
+    pub(crate) fn reclaim_unverified(&self, extent: Extent) -> Result<(), ModelError> {
+        let has_size = fs::metadata(&self.file)
+            .is_ok_and(|metadata| metadata.is_file() && metadata.len() == extent.bytes());
+        if !has_size || self.verified.is_file() || self.partial_len() > 0 {
+            return Ok(());
+        }
+        fs::rename(&self.file, &self.partial).map_err(ModelError::io(&self.file))
     }
 
     pub(crate) fn missing_bytes(&self, extent: Extent) -> u64 {
@@ -147,14 +157,20 @@ pub fn voice_artifacts(
     variant.iter().chain(voice.artifacts).collect()
 }
 
+/// Returns the artifacts of all voices of an engine.
+pub(crate) fn voice_files(
+    descriptor: &EngineDescriptor,
+) -> impl Iterator<Item = &'static Artifact> {
+    descriptor.voices.iter().flat_map(|voice| voice.artifacts)
+}
+
 /// Returns the artifacts of the three variants and of all voices of an engine. Each local file
 /// occurs one time.
 pub fn engine_artifacts(descriptor: &EngineDescriptor) -> Vec<&'static Artifact> {
     let variants = Quality::ALL
         .into_iter()
         .flat_map(|quality| descriptor.variants.get(quality).artifacts);
-    let voices = descriptor.voices.iter().flat_map(|voice| voice.artifacts);
-    unique_files(variants.chain(voices))
+    unique_files(variants.chain(voice_files(descriptor)))
 }
 
 #[cfg(test)]

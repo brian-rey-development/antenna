@@ -11,6 +11,8 @@ mod ensure;
 #[cfg(test)]
 mod fixture;
 #[cfg(test)]
+mod partial;
+#[cfg(test)]
 mod removal;
 #[cfg(test)]
 mod state;

@@ -4,7 +4,8 @@ use std::time::{Duration, Instant};
 
 use crate::ModelError;
 
-pub(crate) const RETRY_DELAYS: [Duration; 3] = [
+pub(crate) const RETRY_COUNT: usize = 3;
+pub(crate) const RETRY_DELAYS: [Duration; RETRY_COUNT] = [
     Duration::from_secs(1),
     Duration::from_secs(4),
     Duration::from_secs(16),

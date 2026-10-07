@@ -13,8 +13,9 @@ use crate::layout::file_len;
 
 const HUB_ENDPOINT: &str = "https://huggingface.co";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const READ_TIMEOUT: Duration = Duration::from_secs(30);
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 const MISSING_STATUSES: [u16; 3] = [401, 403, 404];
+const TRANSIENT_STATUSES: [u16; 6] = [408, 429, 500, 502, 503, 504];
 const USER_AGENT: &str = concat!("antenna/", env!("CARGO_PKG_VERSION"));
 
 /// Downloads artifacts from a Hugging Face server with HTTP range requests.
@@ -27,7 +28,7 @@ impl HubFetch {
     pub(crate) fn new(endpoint: Option<&str>) -> Self {
         let config = Agent::config_builder()
             .timeout_connect(Some(CONNECT_TIMEOUT))
-            .timeout_recv_response(Some(READ_TIMEOUT))
+            .timeout_recv_response(Some(RESPONSE_TIMEOUT))
             .user_agent(USER_AGENT)
             .build();
         Self {
@@ -75,14 +76,32 @@ impl Fetch for HubFetch {
 }
 
 fn classify(error: ureq::Error, artifact: &Artifact) -> FetchError {
-    let is_missing =
-        matches!(error, ureq::Error::StatusCode(status) if MISSING_STATUSES.contains(&status));
-    if is_missing {
-        return FetchError::Permanent(ModelError::NotFound {
-            artifact: artifact.key,
-        });
+    let key = artifact.key;
+    if matches!(error, ureq::Error::StatusCode(status) if MISSING_STATUSES.contains(&status)) {
+        return FetchError::Permanent(ModelError::NotFound { artifact: key });
     }
-    FetchError::Transient(error)
+    if is_transient(&error) {
+        return FetchError::Transient(error);
+    }
+    FetchError::Permanent(ModelError::Network {
+        artifact: key,
+        attempts: 1,
+        source: error,
+    })
+}
+
+fn is_transient(error: &ureq::Error) -> bool {
+    if let ureq::Error::StatusCode(status) = error {
+        return TRANSIENT_STATUSES.contains(status);
+    }
+    matches!(
+        error,
+        ureq::Error::Io(_)
+            | ureq::Error::Timeout(_)
+            | ureq::Error::ConnectionFailed
+            | ureq::Error::HostNotFound
+            | ureq::Error::Protocol(_)
+    )
 }
 
 fn range_header(extent: Extent, have: u64) -> Option<String> {
@@ -108,4 +127,56 @@ fn open_partial(
         File::create(partial)
     };
     open.map_err(FetchError::io(partial))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn range_header_is_absent_when_whole_file_starts() {
+        assert_eq!(range_header(Extent::Whole { bytes: 100 }, 0), None);
+    }
+
+    #[test]
+    fn range_header_continues_from_partial_when_whole_file_resumes() {
+        let header = range_header(Extent::Whole { bytes: 100 }, 40);
+
+        assert_eq!(header.as_deref(), Some("bytes=40-99"));
+    }
+
+    #[test]
+    fn range_header_covers_extent_when_range_starts() {
+        let extent = Extent::Range {
+            offset: 1000,
+            bytes: 50,
+        };
+
+        assert_eq!(range_header(extent, 0).as_deref(), Some("bytes=1000-1049"));
+        assert_eq!(range_header(extent, 20).as_deref(), Some("bytes=1020-1049"));
+    }
+
+    #[test]
+    fn is_transient_follows_status_list() {
+        let statuses = [
+            (408, true),
+            (429, true),
+            (500, true),
+            (502, true),
+            (503, true),
+            (504, true),
+            (400, false),
+            (416, false),
+            (501, false),
+        ];
+
+        for (status, expected) in statuses {
+            assert_eq!(is_transient(&ureq::Error::StatusCode(status)), expected);
+        }
+    }
+
+    #[test]
+    fn is_transient_is_false_when_uri_is_bad() {
+        assert!(!is_transient(&ureq::Error::BadUri(String::new())));
+    }
 }

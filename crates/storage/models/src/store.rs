@@ -9,9 +9,9 @@ use antenna_core::{Artifact, ModelFiles};
 
 use crate::ModelError;
 use crate::install::Installer;
-use crate::layout::{ArtifactPaths, default_root, project_dirs};
+use crate::layout::{ArtifactPaths, default_root, project_dirs, unique_files};
 use crate::progress::{DownloadProgress, Reporter};
-use crate::retry::RETRY_DELAYS;
+use crate::retry::{RETRY_COUNT, RETRY_DELAYS};
 use crate::source::{DirectoryFetch, HubFetch, Source};
 
 const MODEL_DIR_ENV: &str = "ANTENNA_MODEL_DIR";
@@ -22,7 +22,7 @@ const DISK_MARGIN_BYTES: u64 = 1_073_741_824;
 pub struct ModelStore {
     pub(crate) root: PathBuf,
     source: Source,
-    retry_delays: [Duration; 3],
+    retry_delays: [Duration; RETRY_COUNT],
 }
 
 impl ModelStore {
@@ -61,7 +61,7 @@ impl ModelStore {
 
     /// Replaces the delays before the three retries of a failed download.
     #[must_use]
-    pub fn with_retry_delays(self, delays: [Duration; 3]) -> Self {
+    pub fn with_retry_delays(self, delays: [Duration; RETRY_COUNT]) -> Self {
         Self {
             retry_delays: delays,
             ..self
@@ -70,15 +70,18 @@ impl ModelStore {
 
     /// Installs the artifacts that are not installed and returns the local path of each artifact.
     ///
-    /// A download continues from the partial file of an earlier call. `progress` gets at most one
-    /// report in each 100 ms, and one report at the end.
+    /// A download continues from the partial file of an earlier call. If a download is necessary,
+    /// `progress` gets at most one report in each progress interval and one report at the end.
+    /// If all artifacts are installed, `progress` gets no report.
     ///
     /// # Errors
     ///
-    /// Returns [`ModelError::DuplicateKey`] if two artifacts have the same key,
-    /// [`ModelError::DiskSpace`] if the disk is too small, [`ModelError::Cancelled`] if `cancel`
-    /// becomes `true`, and the other [`ModelError`] variants if a download, a check or a file
-    /// operation fails.
+    /// Returns one of these errors.
+    ///
+    /// 1. [`ModelError::DuplicateKey`] if two artifacts have the same key.
+    /// 2. [`ModelError::DiskSpace`] if the disk is too small.
+    /// 3. [`ModelError::Cancelled`] if `cancel` becomes `true`.
+    /// 4. Another [`ModelError`] if a download, a check or a file operation fails.
     pub fn ensure(
         &self,
         artifacts: impl IntoIterator<Item = &'static Artifact>,
@@ -86,18 +89,19 @@ impl ModelStore {
         cancel: &AtomicBool,
     ) -> Result<ModelFiles, ModelError> {
         let artifacts = unique_keys(artifacts)?;
-        let missing: Vec<_> = artifacts
-            .iter()
-            .copied()
-            .filter(|artifact| !self.has_artifact(artifact))
-            .collect();
+        let missing = unique_files(
+            artifacts
+                .iter()
+                .copied()
+                .filter(|artifact| !self.has_artifact(artifact)),
+        );
         if !missing.is_empty() {
-            self.install(&missing, progress, cancel)?;
+            self.install_missing(&missing, progress, cancel)?;
         }
         Ok(self.model_files(&artifacts))
     }
 
-    fn install(
+    fn install_missing(
         &self,
         missing: &[&'static Artifact],
         progress: &(dyn Fn(DownloadProgress) + Sync),

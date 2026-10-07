@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use antenna_core::{Artifact, EngineDescriptor, Quality, VoiceDescriptor};
 
 use crate::layout::{
-    ArtifactPaths, engine_artifacts, relative_path, unique_files, voice_artifacts,
+    ArtifactPaths, engine_artifacts, relative_path, unique_files, voice_artifacts, voice_files,
 };
 use crate::{ModelError, ModelStore};
 
@@ -111,8 +111,8 @@ impl ModelStore {
         for path in [&paths.file, &paths.verified, &paths.partial] {
             deleted_bytes += remove_counted(path)?;
         }
-        drop(lock);
         deleted_bytes += remove_counted(&paths.lock)?;
+        drop(lock);
         prune_empty_directories(&self.root, paths.directory());
         Ok(deleted_bytes)
     }
@@ -122,15 +122,16 @@ impl ModelStore {
 /// counts one time.
 pub fn engine_download_bytes(descriptor: &EngineDescriptor, quality: Quality) -> u64 {
     let variant = descriptor.variants.get(quality).artifacts;
-    let voices = descriptor.voices.iter().flat_map(|voice| voice.artifacts);
-    unique_files(variant.iter().chain(voices))
+    unique_files(variant.iter().chain(voice_files(descriptor)))
         .into_iter()
         .map(|artifact| artifact.extent.bytes())
         .sum()
 }
 
-/// Returns the artifacts that `remove_engine` must keep, which are the artifacts of the other
-/// engines and the artifacts of `extra`, for example the review model.
+/// Returns the artifacts that `remove_engine` must keep.
+///
+/// These are the artifacts of the other engines, then the artifacts of `extra`. The caller gives
+/// the review model in `extra`.
 pub fn keep_artifacts<'a>(
     other_engines: impl IntoIterator<Item = &'a EngineDescriptor>,
     extra: impl IntoIterator<Item = &'static Artifact>,
@@ -144,13 +145,16 @@ pub fn keep_artifacts<'a>(
 
 fn list_directory(directory: &Path) -> Result<Vec<(PathBuf, Metadata)>, ModelError> {
     let entries = fs::read_dir(directory).map_err(ModelError::io(directory))?;
-    entries
-        .map(|entry| {
-            let entry = entry.map_err(ModelError::io(directory))?;
-            let metadata = entry.metadata().map_err(ModelError::io(&entry.path()))?;
-            Ok((entry.path(), metadata))
-        })
-        .collect()
+    let mut listed = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(ModelError::io(directory))?;
+        match entry.metadata() {
+            Ok(metadata) => listed.push((entry.path(), metadata)),
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(source) => return Err(ModelError::io(&entry.path())(source)),
+        }
+    }
+    Ok(listed)
 }
 
 fn remove_counted(path: &Path) -> Result<u64, ModelError> {

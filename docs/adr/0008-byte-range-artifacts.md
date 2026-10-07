@@ -16,7 +16,7 @@ The files of a voice are large, and the first use of a voice downloads gigabytes
 2. The model store downloads a range with an HTTP `Range` request. The SHA-256 in the artifact is the hash of the downloaded bytes.
 3. The local file of a range has the name `<path>@<offset>+<bytes>`. Two ranges of one archive have two local files. The same range in two engines has one local file.
 4. The store writes the bytes into a `.part` file. After a failure, the next attempt sends a `Range` header from the length of the `.part` file. This resume works for a whole file and for a range.
-5. If the server ignores the `Range` header, the store restarts a whole file from zero. For a range, the store returns `ModelError::RangeUnsupported`, because a restart would download the full archive.
+5. If the server ignores the `Range` header, the store restarts a whole file from zero. For a range, the store returns `ModelError::RangeUnsupported`, because a restart downloads the full archive.
 6. The store does not use `hf-hub`. The store has one download path and one retry policy, and the tests control both against a local HTTP server. `hf-hub` has its own cache layout, so it cannot give the layout of this ADR.
 
 ## Consequences

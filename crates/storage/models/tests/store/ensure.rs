@@ -5,7 +5,7 @@ use antenna_core::{Artifact, Extent};
 use antenna_models::{DownloadProgress, ModelError};
 
 use crate::fixture::{Fixture, NOT_CANCELLED, ignore_progress};
-use crate::support::{leak, pattern, range, whole};
+use crate::support::{leak, pattern, whole};
 
 const BLOCK_BYTES: usize = 65_536;
 const FILE_BYTES: usize = 10 * BLOCK_BYTES;
@@ -139,7 +139,7 @@ fn ensure_stops_after_one_block_when_cancelled() {
 
     let kept = fs::metadata(fixture.partial(artifact)).unwrap().len();
     assert!(matches!(result, Err(ModelError::Cancelled)));
-    assert!((1..=2 * BLOCK_BYTES as u64).contains(&kept));
+    assert_eq!(kept, BLOCK_BYTES as u64);
     assert!(!fixture.file(artifact).exists());
 }
 
@@ -247,51 +247,4 @@ fn ensure_reports_total_when_install_finishes() {
         })
     );
     assert!(reports.is_sorted_by_key(|report| report.done_bytes));
-}
-
-#[test]
-fn ensure_resumes_when_partial_file_exists_and_source_is_directory() {
-    let fixture = Fixture::new();
-    let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);
-    fixture.write_partial(artifact, &bytes[..BLOCK_BYTES + 7]);
-
-    let files = fixture.ensure(&[artifact]).unwrap();
-
-    assert_eq!(fs::read(files.path("weights").unwrap()).unwrap(), bytes);
-}
-
-#[test]
-fn ensure_restarts_when_partial_file_is_longer_than_artifact() {
-    let fixture = Fixture::new();
-    let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);
-    fixture.write_partial(artifact, &pattern(FILE_BYTES + 5));
-
-    let files = fixture.ensure(&[artifact]).unwrap();
-
-    assert_eq!(fs::read(files.path("weights").unwrap()).unwrap(), bytes);
-}
-
-#[test]
-fn ensure_installs_without_fetch_when_partial_file_is_complete() {
-    let fixture = Fixture::new();
-    let (artifact, bytes) = published(&fixture, "weights", FILE_BYTES);
-    fixture.write_partial(artifact, &bytes);
-    fixture.unpublish(artifact);
-
-    let files = fixture.ensure(&[artifact]).unwrap();
-
-    assert_eq!(fs::read(files.path("weights").unwrap()).unwrap(), bytes);
-}
-
-#[test]
-fn ensure_installs_range_when_source_is_directory() {
-    let fixture = Fixture::new();
-    let archive = pattern(FILE_BYTES);
-    let part = range("prompt", &archive, 1_000, 5_000);
-    fixture.publish(part, &archive);
-
-    let files = fixture.ensure(&[part]).unwrap();
-
-    let installed = fs::read(files.path("prompt").unwrap()).unwrap();
-    assert_eq!(installed, &archive[1_000..6_000]);
 }
