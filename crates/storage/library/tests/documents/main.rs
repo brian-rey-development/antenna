@@ -1,6 +1,8 @@
 //! Tests of the documents, the status, the search, the groups and the recovery of the library.
 
 #[cfg(test)]
+mod garbage;
+#[cfg(test)]
 mod lifecycle;
 #[cfg(test)]
 mod listing;

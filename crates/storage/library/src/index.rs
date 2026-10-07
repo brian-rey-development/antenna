@@ -4,12 +4,12 @@
 )]
 
 use std::cmp::Reverse;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::search::{self, fold};
 use crate::status::status;
-use crate::{DocumentId, DocumentMeta, DocumentSummary, Filter, LibraryError};
+use crate::{DocumentId, DocumentMeta, DocumentSummary, Filter, LibraryError, SegmentKey};
 
 /// The number of documents that `recent` returns.
 pub const RECENT_LIMIT: usize = 4;
@@ -154,5 +154,12 @@ impl Index {
 
     pub(crate) fn len(&self) -> usize {
         self.read().entries.len()
+    }
+
+    pub(crate) fn used_keys(&self) -> HashSet<SegmentKey> {
+        let state = self.read();
+        let metas = state.entries.values().map(|entry| &entry.meta);
+        let lists = metas.filter_map(|meta| meta.segments.as_ref());
+        lists.flat_map(|list| list.keys.iter().copied()).collect()
     }
 }

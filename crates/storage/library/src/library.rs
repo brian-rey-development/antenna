@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use antenna_core::Document;
 use jiff::{Timestamp, Zoned};
@@ -11,8 +12,8 @@ use crate::meta_file::{read_meta, write_meta};
 use crate::metadata::parse_title;
 use crate::period::group_by_period;
 use crate::{
-    DocumentId, DocumentMeta, DocumentSummary, Filter, Group, LibraryError, SegmentStore, atomic,
-    fold, paths, text_hash,
+    DocumentId, DocumentMeta, DocumentSummary, Filter, GcReport, Group, LibraryError, SegmentStore,
+    atomic, fold, gc, paths, text_hash,
 };
 
 /// The documents of the user and their segment store, in one data directory.
@@ -217,6 +218,18 @@ impl Library {
     /// Returns the number of documents.
     pub fn count(&self) -> usize {
         self.index.len()
+    }
+
+    /// Deletes each segment file that no document uses and that is older than one hour at `now`.
+    /// It also deletes each temporary file in the data root that is older than one hour at `now`.
+    /// The age limit protects the segments of a job that started but did not record its keys, and
+    /// the files of another process. The apps call this function on a background thread at start.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LibraryError::Io`] if a directory cannot be read or a file cannot be deleted.
+    pub fn collect_garbage(&self, now: SystemTime) -> Result<GcReport, LibraryError> {
+        gc::collect(&self.root, &self.index.used_keys(), now)
     }
 
     pub(crate) fn directory(&self, id: DocumentId) -> PathBuf {

@@ -6,6 +6,7 @@
 mod atomic;
 mod document;
 mod error;
+mod gc;
 mod index;
 mod library;
 mod meta_file;
@@ -18,6 +19,7 @@ mod status;
 
 pub use document::{DocumentId, DocumentMeta, ExportRecord, SegmentList, StoredVoice, text_hash};
 pub use error::LibraryError;
+pub use gc::GcReport;
 pub use index::RECENT_LIMIT;
 pub use library::Library;
 pub use period::{Group, Period};
