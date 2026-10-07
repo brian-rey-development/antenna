@@ -214,7 +214,7 @@ From any state before the terminal event:  ──> Failed(JobError)  or  ──>
 
 The worker does these steps for a document job. Each step has a `tracing` span with the same name.
 
-1. `plan`. Find the factory and the voice. Call `antenna_text::prepare` with the document, the language of the voice and `SegmentLimits::new(descriptor.max_segment_chars)`. Calculate `SegmentKey::new(descriptor, voice, quality, segment.text())` for each segment. Read the duration of each stored segment from the `SegmentStore`. If `start_segment` is not less than the segment count, fail with `StartSegmentOutOfRange`. Send `Started`.
+1. `plan`. Find the factory and the voice. Call `antenna_text::prepare` with the document, the language of the voice and `SegmentLimits::new(descriptor.max_segment_chars)`. Calculate `SegmentKey::new(descriptor, voice, quality, segment.text())` for each segment. Read the duration of each stored segment from the `SegmentStore`. Set the modified time of each stored segment file to the current time with `File::set_modified`. Do this before `Started`, so garbage collection of the library keeps the segment until the app records the keys. If the file is absent, treat the segment as not stored. If `start_segment` is not less than the segment count, fail with `StartSegmentOutOfRange`. Send `Started`.
 2. `open`. Open each output with the sample rate of the descriptor.
 3. `synthesize`. For each segment from `start_segment`, do these steps.
    1. If the segment is in the store, set its duration and send `Synthesized` with `is_cached: true`. Do not send it to the outputs. The player reads it from the store.
@@ -283,7 +283,7 @@ The events channel of each job is `flume::unbounded`. The number of events of a 
 4. Write `pool.rs` with its unit tests.
 5. Write `queue.rs` with its unit tests for submission order and positions.
 6. Write `worker/fan_out.rs` with its unit tests.
-7. Write `worker/plan.rs` and `worker/engine.rs`.
+7. Write `worker/plan.rs` and `worker/engine.rs`. `plan` refreshes the modified time of each stored segment file before it sends `Started`.
 8. Write `worker/mod.rs` with the worker loop, the command handling and the job sequence.
 9. Write `job.rs` and `pipeline.rs`. `start`, `preload` and `timeline` check that a factory has the voice before they send a command. They return these errors directly and send no events.
 10. Write `tests/pipeline/outputs.rs`. `GateOutput` blocks each `write` until the test releases it through a `flume` channel. It reports each `begin_segment`, each write and each `finish` through a second channel. `FailingOutput` returns `SinkError::Closed` from its first `write`.
@@ -329,6 +329,7 @@ The events channel of each job is `flume::unbounded`. The number of events of a 
 | AC-06-30 | `Timeline::paths` gives the store path of each segment key in segment sequence | Test `timeline_paths_follow_segment_order` |
 | AC-06-31 | A cancel in the middle of a segment leaves no file of that segment in the store, and the job ends with `Cancelled` | Test `job_leaves_no_segment_when_cancelled_mid_segment` with `GateOutput`. The test cancels after the first chunk of a segment and checks `SegmentStore::contains` for its key |
 | AC-06-32 | A sink write error fails the job with `JobError::Sink`, leaves no file of that segment in the store, and sends no `Finished` | Test `job_fails_when_sink_write_fails` with a test output whose `write` returns `SinkError::Closed` |
+| AC-06-33 | A job that reuses a stored segment sets the modified time of its file to a later time before it sends `Started` | Test `job_refreshes_modified_time_when_segment_cached`. The test sets the modified time to the epoch with `File::set_modified`, runs the job, and checks that the time is later |
 
 ## Decision rules
 

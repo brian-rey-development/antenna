@@ -19,6 +19,7 @@ The Library screen shows the status of 1000 documents. The app must start in 300
 5. The writer makes a temporary file and renames it at `commit`. A reader never sees a partial file. If the key exists already, `commit` keeps the existing file.
 6. The status of a document comes from `document.toml` only. The file holds the text hash, the voice, the segment keys, the completion flag and the last export. The progress of a job that runs is in memory only.
 7. A background thread deletes each segment file that no document uses and that is older than one hour. The age limit protects a job that runs now, also in another process.
+8. When the pipeline reuses a stored segment, it sets the modified time of the file to the current time. It does this before the app records the keys, so the age limit protects the segment until a document uses it.
 
 ## Consequences
 
@@ -29,4 +30,7 @@ The Library screen shows the status of 1000 documents. The app must start in 300
 5. If a user deletes a segment file outside Antenna, the status stays `Ready`. The next job synthesizes the missing segment.
 6. Segments of deleted documents stay for one hour at least. Then garbage collection deletes them.
 7. A crash between the two writes of `save_text` leaves the new text with the old metadata. The status stays `Ready` until `Library::load` reads the text, compares its hash and stores it. Then the status is `Draft`.
-8. A function that changes a document reads, changes and writes it. The apps must call these functions from one thread.
+8. Many threads can change one document. A writer writes the file first. Then it replaces the index entry only if no other writer replaced it. A writer that loses reads the new data and does the change again.
+9. Garbage collection lists the old candidates first. It reads the keys that documents use one time after that. It checks the age of each candidate again before it deletes the file. A window of a few microseconds remains between this check and the delete. If a segment is deleted in this window, the next job synthesizes it again. Thus the loss is a delay and not a loss of data.
+10. A document that `open` skips has no protected segments, so garbage collection deletes its segments after one hour. Garbage collection never deletes a text file, and the audio can be synthesized again.
+11. On Unix, each rename of a file and each new document directory is followed by a sync of the parent directory. Thus a crash does not remove a file that the library reported as saved.
