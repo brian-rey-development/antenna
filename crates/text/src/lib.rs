@@ -16,6 +16,7 @@ mod prose;
 mod sentences;
 mod source_map;
 mod split;
+mod srx_rules;
 
 pub use error::TextError;
 pub use language::identify_language;

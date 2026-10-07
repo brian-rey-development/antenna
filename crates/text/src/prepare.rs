@@ -6,7 +6,7 @@ use antenna_core::{Document, Language, Segment, SegmentIndex};
 use crate::fragment::Fragment;
 use crate::prose::Prose;
 use crate::source_map::SourceMap;
-use crate::{SegmentLimits, TextError, sentences, split};
+use crate::{SegmentLimits, TextError, sentences, split, srx_rules};
 
 /// Converts a document into the segments that an engine speaks, in document sequence.
 ///
@@ -26,7 +26,7 @@ pub fn prepare(
     language: Language,
     limits: SegmentLimits,
 ) -> Result<Vec<Segment>, TextError> {
-    let rules = sentences::rules(language)?;
+    let rules = srx_rules::for_language(language)?;
     let prose = Prose::for_document(document);
     let mut fragments = prose
         .blocks()
