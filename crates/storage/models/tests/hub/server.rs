@@ -2,6 +2,7 @@ use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Cursor, Write};
 use std::net::{TcpListener, TcpStream};
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
@@ -27,6 +28,8 @@ pub(crate) enum Behavior {
     FailFirst(u32),
     Status(u16),
     IgnoreRange,
+    /// Answers a range request with a `Content-Range` that starts at byte 0.
+    MisplacedRange,
     Redirect(String),
     /// Closes the connection after this many body bytes, on the first request only.
     CloseAfter(usize),
@@ -149,6 +152,7 @@ impl State {
         match behavior {
             Behavior::Serve | Behavior::FailFirst(0) => ranged(body, range),
             Behavior::IgnoreRange => Response::from_data(body.clone()).with_status_code(OK),
+            Behavior::MisplacedRange => misplaced(body, range),
             Behavior::Status(status) => empty(*status),
             Behavior::FailFirst(remaining) => {
                 *remaining -= 1;
@@ -197,8 +201,20 @@ fn ranged(body: &[u8], range: Option<&str>) -> Reply {
         return Response::from_data(body.to_vec()).with_status_code(OK);
     };
     let (start, end) = parse_range(range);
-    let content_range = format!("bytes {start}-{end}/{}", body.len());
-    Response::from_data(body[start..=end].to_vec())
+    partial_content(body, start..=end, start)
+}
+
+fn misplaced(body: &[u8], range: Option<&str>) -> Reply {
+    let Some(range) = range else {
+        return ranged(body, None);
+    };
+    let (start, end) = parse_range(range);
+    partial_content(body, start..=end, 0)
+}
+
+fn partial_content(body: &[u8], sent: RangeInclusive<usize>, claimed_start: usize) -> Reply {
+    let content_range = format!("bytes {claimed_start}-{}/{}", sent.end(), body.len());
+    Response::from_data(body[sent].to_vec())
         .with_status_code(StatusCode(PARTIAL_CONTENT))
         .with_header(Header::from_bytes("Content-Range", content_range).unwrap())
 }

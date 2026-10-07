@@ -1,9 +1,11 @@
 use std::fs::{File, OpenOptions};
+use std::io::Read;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use antenna_core::{Artifact, Extent};
+use ureq::http::header::CONTENT_RANGE;
 use ureq::http::{Response, StatusCode};
 use ureq::unversioned::resolver::DefaultResolver;
 use ureq::{Agent, Body};
@@ -70,9 +72,10 @@ impl Fetch for HubFetch {
         let have = file_len(partial);
         let range = range_header(artifact.extent, have);
         let response = self.request(artifact, range.as_deref())?;
-        let mut output = open_partial(artifact, partial, response.status(), range.as_deref())?;
+        let (mut output, remaining_bytes) = open_partial(artifact, partial, &response, have)?;
         let mut body = response.into_body();
-        let result = copy_blocks(&mut body.as_reader(), &mut output, progress, cancel);
+        let mut reader = body.as_reader().take(remaining_bytes);
+        let result = copy_blocks(&mut reader, &mut output, progress, cancel);
         finish_copy(result, partial, |source| {
             FetchError::Transient(ureq::Error::from(source))
         })
@@ -108,29 +111,53 @@ fn is_transient(error: &ureq::Error) -> bool {
     )
 }
 
-fn range_header(extent: Extent, have: u64) -> Option<String> {
-    let start = start_offset(extent);
-    let is_range = matches!(extent, Extent::Range { .. });
-    let end = (start + extent.bytes()).saturating_sub(1);
-    (have > 0 || is_range).then(|| format!("bytes={}-{end}", start + have))
+fn first_byte(extent: Extent, have: u64) -> u64 {
+    start_offset(extent) + have
 }
 
+fn range_header(extent: Extent, have: u64) -> Option<String> {
+    let is_range = matches!(extent, Extent::Range { .. });
+    let end = (start_offset(extent) + extent.bytes()).saturating_sub(1);
+    (have > 0 || is_range).then(|| format!("bytes={}-{end}", first_byte(extent, have)))
+}
+
+fn content_range_start(response: &Response<Body>) -> Option<u64> {
+    let value = response.headers().get(CONTENT_RANGE)?.to_str().ok()?;
+    let (start, _) = value.strip_prefix("bytes ")?.split_once('-')?;
+    start.parse().ok()
+}
+
+/// Opens the partial file for the body of the response. Returns the file and the number of body
+/// bytes that the download keeps.
 fn open_partial(
     artifact: &Artifact,
     partial: &Path,
-    status: StatusCode,
-    range: Option<&str>,
-) -> Result<File, FetchError> {
-    let open = if status == StatusCode::PARTIAL_CONTENT {
-        OpenOptions::new().create(true).append(true).open(partial)
-    } else if range.is_some() && matches!(artifact.extent, Extent::Range { .. }) {
-        return Err(FetchError::Permanent(ModelError::RangeUnsupported {
+    response: &Response<Body>,
+    have: u64,
+) -> Result<(File, u64), FetchError> {
+    let range_error = || {
+        FetchError::Permanent(ModelError::RangeUnsupported {
             artifact: artifact.key,
-        }));
-    } else {
-        File::create(partial)
+        })
     };
-    open.map_err(FetchError::io(partial))
+    let bytes = artifact.extent.bytes();
+    if response.status() == StatusCode::PARTIAL_CONTENT {
+        if content_range_start(response) != Some(first_byte(artifact.extent, have)) {
+            return Err(range_error());
+        }
+        let output = OpenOptions::new().create(true).append(true).open(partial);
+        return Ok((
+            output.map_err(FetchError::io(partial))?,
+            bytes.saturating_sub(have),
+        ));
+    }
+    if matches!(artifact.extent, Extent::Range { .. }) {
+        return Err(range_error());
+    }
+    Ok((
+        File::create(partial).map_err(FetchError::io(partial))?,
+        bytes,
+    ))
 }
 
 #[cfg(test)]

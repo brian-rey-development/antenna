@@ -55,7 +55,7 @@ pub enum ModelError {
         /// The key of the artifact.
         artifact: &'static str,
     },
-    /// The server ignored the byte range of an artifact that is a part of a file.
+    /// The server did not answer the byte range that the download asked for.
     #[error("the server does not support the byte range of {artifact}")]
     RangeUnsupported {
         /// The key of the artifact.
