@@ -134,10 +134,9 @@ impl SegmentStore {
     ///
     /// Returns [`LibraryError::Io`] or [`LibraryError::Wav`] if the temporary file cannot be made.
     pub fn writer(&self, key: SegmentKey, rate: SampleRate) -> Result<SegmentWriter, LibraryError> {
-        let target = self.path(&key);
-        let parent = target.parent().unwrap_or(&self.directory);
-        fs::create_dir_all(parent).map_err(LibraryError::io(parent))?;
-        let temp_file = TempFile::for_target(&target);
+        let directory = paths::segment_dir(&self.directory, &key);
+        fs::create_dir_all(&directory).map_err(LibraryError::io(&directory))?;
+        let temp_file = TempFile::new(&directory, &paths::segment_file_name(&key));
         let format = WavSpec {
             channels: MONO_CHANNELS,
             sample_rate: rate.hz(),
@@ -149,7 +148,6 @@ impl SegmentStore {
         Ok(SegmentWriter {
             wav,
             temp_file,
-            target,
             rate,
         })
     }
@@ -186,7 +184,6 @@ pub struct SegmentWriter {
     // The WAV writer drops first. Its drop writes the header, and the temporary file must exist.
     wav: WavWriter<BufWriter<File>>,
     temp_file: TempFile,
-    target: PathBuf,
     rate: SampleRate,
 }
 
@@ -194,7 +191,7 @@ impl Debug for SegmentWriter {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("SegmentWriter")
-            .field("target", &self.target)
+            .field("target", &self.temp_file.target())
             .field("rate", &self.rate)
             .finish_non_exhaustive()
     }
@@ -226,10 +223,11 @@ impl SegmentWriter {
             .finalize()
             .map_err(LibraryError::wav(self.temp_file.path()))?;
         atomic::sync_path(self.temp_file.path())?;
-        if !self.target.exists() {
-            self.temp_file.persist(&self.target)?;
+        let target = self.temp_file.target();
+        if !target.exists() {
+            self.temp_file.persist()?;
         }
-        read_duration(&self.target)
+        read_duration(target)
     }
 }
 

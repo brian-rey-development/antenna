@@ -29,7 +29,7 @@ pub(crate) fn write_metadata(
         path: path.clone(),
         source,
     })?;
-    atomic::write(&path, text.as_bytes())
+    atomic::write(directory, paths::META_FILE_NAME, text.as_bytes())
 }
 
 #[derive(Serialize, Deserialize)]

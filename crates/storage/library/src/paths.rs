@@ -9,7 +9,7 @@ use crate::{DocumentId, LibraryError, SegmentKey};
 
 const DATA_DIR_ENV: &str = "ANTENNA_DATA_DIR";
 const LIBRARY_DIR_NAME: &str = "library";
-const META_FILE_NAME: &str = "document.toml";
+pub(crate) const META_FILE_NAME: &str = "document.toml";
 const MARKDOWN_FILE_NAME: &str = "text.md";
 const PLAIN_FILE_NAME: &str = "text.txt";
 const SEGMENTS_DIR_NAME: &str = "segments";
@@ -49,23 +49,36 @@ pub(crate) fn metadata_path(document_dir: &Path) -> PathBuf {
     document_dir.join(META_FILE_NAME)
 }
 
-pub(crate) fn text_path(document_dir: &Path, format: TextFormat) -> PathBuf {
-    document_dir.join(match format {
+pub(crate) fn text_file_name(format: TextFormat) -> &'static str {
+    match format {
         TextFormat::Markdown => MARKDOWN_FILE_NAME,
         TextFormat::Plain => PLAIN_FILE_NAME,
-    })
+    }
+}
+
+pub(crate) fn text_path(document_dir: &Path, format: TextFormat) -> PathBuf {
+    document_dir.join(text_file_name(format))
 }
 
 pub(crate) fn segments_dir(root: &Path) -> PathBuf {
     root.join(SEGMENTS_DIR_NAME)
 }
 
+pub(crate) fn segment_dir(segments_dir: &Path, key: &SegmentKey) -> PathBuf {
+    let prefix: String = key
+        .to_string()
+        .chars()
+        .take(SEGMENT_KEY_PREFIX_CHARS)
+        .collect();
+    segments_dir.join(prefix)
+}
+
+pub(crate) fn segment_file_name(key: &SegmentKey) -> String {
+    format!("{key}.{SEGMENT_EXTENSION}")
+}
+
 pub(crate) fn segment_path(segments_dir: &Path, key: &SegmentKey) -> PathBuf {
-    let text = key.to_string();
-    let prefix: String = text.chars().take(SEGMENT_KEY_PREFIX_CHARS).collect();
-    segments_dir
-        .join(prefix)
-        .join(format!("{text}.{SEGMENT_EXTENSION}"))
+    segment_dir(segments_dir, key).join(segment_file_name(key))
 }
 
 #[cfg(test)]

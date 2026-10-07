@@ -87,7 +87,6 @@ impl Library {
     ) -> Result<DocumentId, LibraryError> {
         let title = parse_title(title)?;
         let id = DocumentId::new(now);
-        let directory = self.directory(id);
         let metadata = DocumentMeta {
             id,
             title,
@@ -101,8 +100,8 @@ impl Library {
             segments: None,
             last_export: None,
         };
-        if let Err(error) = write_new(&directory, &metadata, document) {
-            drop(fs::remove_dir_all(&directory));
+        if let Err(error) = self.write_new(&metadata, document) {
+            drop(fs::remove_dir_all(self.directory(id)));
             return Err(error);
         }
         self.index.insert(metadata, Some(fold(document.text())));
@@ -253,21 +252,19 @@ impl Library {
     pub(crate) fn directory(&self, id: DocumentId) -> PathBuf {
         paths::document_dir(&paths::library_dir(&self.root), id)
     }
-}
 
-fn write_new(
-    directory: &Path,
-    metadata: &DocumentMeta,
-    document: &Document,
-) -> Result<(), LibraryError> {
-    fs::create_dir_all(directory).map_err(LibraryError::io(directory))?;
-    write_text(directory, document)?;
-    write_metadata(directory, metadata)
+    fn write_new(&self, metadata: &DocumentMeta, document: &Document) -> Result<(), LibraryError> {
+        let directory = self.directory(metadata.id);
+        fs::create_dir_all(&directory).map_err(LibraryError::io(&directory))?;
+        atomic::sync_parent(&paths::library_dir(&self.root))?;
+        write_text(&directory, document)?;
+        write_metadata(&directory, metadata)
+    }
 }
 
 fn write_text(directory: &Path, document: &Document) -> Result<(), LibraryError> {
-    let path = paths::text_path(directory, document.format());
-    atomic::write(&path, document.text().as_bytes())
+    let file_name = paths::text_file_name(document.format());
+    atomic::write(directory, file_name, document.text().as_bytes())
 }
 
 fn load_documents(library_dir: &Path, index: &Index) -> Result<Vec<PathBuf>, LibraryError> {
