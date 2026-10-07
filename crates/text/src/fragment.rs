@@ -124,6 +124,12 @@ mod tests {
         let fragment = Fragment::new("ab   cd", 0);
 
         assert!(fragment.exceeds(4));
+    }
+
+    #[test]
+    fn fragment_fits_when_collapsed_text_is_as_long_as_limit() {
+        let fragment = Fragment::new("ab   cd", 0);
+
         assert!(!fragment.exceeds(5));
     }
 
