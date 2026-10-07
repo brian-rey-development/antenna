@@ -9,7 +9,7 @@
 
 ## 1. Acceptance criteria
 
-The last local run of `cargo nextest run -p antenna-models` reported 87 tests run and 87 passed. Tests of the directory source are in `crates/storage/models/tests/store/`. Tests with the HTTP server are in `crates/storage/models/tests/hub/`. Unit tests are in `src/`.
+The last local run of `cargo nextest run -p antenna-models` reported 101 tests run and 101 passed. Tests of the directory source are in `crates/storage/models/tests/store/`. Tests with the HTTP server are in `crates/storage/models/tests/hub/`. Unit tests are in `src/`.
 
 | ID | Result | Evidence |
 |---|---|---|
@@ -17,10 +17,10 @@ The last local run of `cargo nextest run -p antenna-models` reported 87 tests ru
 | AC-04-02 | Pass | Test `ensure_installs_artifact_when_source_has_it` |
 | AC-04-03 | Pass | Test `ensure_skips_fetch_when_artifact_installed`. The test removes the source file before the second call |
 | AC-04-04 | Pass | Test `ensure_fails_and_deletes_when_hash_differs` |
-| AC-04-05 | Pass | Test `ensure_fails_and_deletes_when_size_differs`. Test `ensure_fails_when_server_sends_more_bytes_than_declared` covers the server |
+| AC-04-05 | Pass | Test `ensure_fails_and_deletes_when_size_differs`. Tests `ensure_fails_on_hash_when_server_sends_more_bytes_than_declared` and `ensure_installs_declared_bytes_when_server_sends_more_bytes` cover the server. The download reads only the declared bytes, so an oversize body gives a hash error |
 | AC-04-06 | Pass | Test `ensure_fetches_again_when_installed_file_truncated` |
 | AC-04-07 | Pass | Test `ensure_fails_when_disk_space_insufficient` |
-| AC-04-08 | Pass | Tests `ensure_succeeds_when_server_fails_three_times` and `ensure_fails_when_server_fails_four_times` |
+| AC-04-08 | Pass | Tests `ensure_succeeds_when_server_fails_three_times` and `ensure_fails_when_server_fails_four_times`. Test `ensure_completes_when_connection_breaks_more_often_than_attempt_limit` covers the retry budget of section 6, finding 12 |
 | AC-04-09 | Pass | Test `ensure_does_not_retry_when_not_found`. The server counts 1 request. Test `ensure_does_not_retry_when_access_denied` covers 401 and 403 |
 | AC-04-10 | Pass | Test `ensure_stops_after_one_block_when_cancelled` (exactly one block with the directory source). Test `ensure_stops_after_one_block_when_cancelled_during_download` (HTTP) |
 | AC-04-11 | Pass | Test `ensure_resumes_when_partial_file_exists` checks the header `bytes=100000-299999` |
@@ -32,7 +32,7 @@ The last local run of `cargo nextest run -p antenna-models` reported 87 tests ru
 | AC-04-17 | Pass | Unit test `layout_separates_ranges_of_one_file` |
 | AC-04-18 | Pass | Unit test `progress_is_monotonic_and_complete`. Test `ensure_reports_increasing_progress_when_connection_breaks` checks it through `ensure` |
 | AC-04-19 | Pass | Test `ensure_fails_when_keys_collide` |
-| AC-04-20 | Pass | Test `final_path_absent_until_hash_checked` |
+| AC-04-20 | Pass | Test `final_path_stays_absent_when_hash_differs`. The plan names the test `final_path_absent_until_hash_checked`. The test cannot observe the instant of the hash check, so the new name tells what it proves. During the download and after a failed hash check, the final path does not exist. Unit tests of `commit` in `src/verify.rs` show that the file moves to the final path after the hash check passes |
 | AC-04-21 | Pass | Unit tests `default_root_uses_env_when_set` and `default_root_uses_data_dir_when_env_absent` |
 | AC-04-22 | Pass | Test `voice_artifacts_lists_variant_then_voice` |
 | AC-04-23 | Pending | Manual. See section 4 |
@@ -67,10 +67,10 @@ A new agent session reviewed the diff against the stage file, `docs/architecture
 | Finding | Result |
 |---|---|
 | 1. An artifact of zero bytes failed | Fixed. `fetch_once` creates the partial file. Test `ensure_installs_empty_artifact_when_extent_is_zero` |
-| 2. No read timeout for the body | Not fixed, see difference 5. The constant is `RESPONSE_TIMEOUT` |
+| 2. No read timeout for the body | The first fix did not work, because `timeout_recv_body` is a total budget. Fixed in section 6, finding 1 |
 | 3. All errors were transient | Fixed. Only I/O, timeout, connection, host and protocol errors and the statuses 408, 429, 500, 502, 503 and 504 are transient. Another error returns `Network` with `attempts: 1`. Tests `ensure_retries_when_status_is_transient`, `ensure_does_not_retry_when_status_is_not_transient` and unit tests of `is_transient` |
 | 4. A crash between the rename and the record caused a new download | Fixed. `reclaim_unverified` renames the file to the partial file, and the hash check installs it. Test `ensure_installs_without_fetch_when_verified_record_is_missing` |
-| 5. The lock file was deleted after the lock | Partly fixed. `remove_artifact` deletes it while it holds the lock. A caller that waited on the old file can still lock it. The case needs a removal during a download of the same engine, which the Models screen does not permit |
+| 5. The lock file was deleted after the lock | Partly fixed. `remove_artifact` deletes the lock file while it holds the lock. The race needs three parties. Section 6, finding 5 describes it and the effect of the hash check |
 | 6. Progress overshoot when a server ignores `Range` | Fixed. The bytes of one file stay below its share. Test renamed to `progress_stays_at_total_when_download_restarts` |
 | 7. `disk_usage` failed when a file vanished | Fixed. The walk skips an entry that is gone |
 | 8. A shared file counted two times | Fixed. `ensure` removes duplicate local files from the missing list. Test `ensure_installs_shared_file_once_when_two_keys_have_one_file` |
@@ -81,7 +81,7 @@ A new agent session reviewed the diff against the stage file, `docs/architecture
 | 13. STE-80 | Fixed in ADR 0008 and in the documentation of `ensure` and `keep_artifacts`. The error message keeps the literal `ANTENNA_MODEL_DIR` |
 | 14, 15, 17, 18 | Fixed. Names `kept_bytes` and `earlier_bytes`, one `voice_files` helper, `RETRY_COUNT`, hex text without a table of nibbles |
 | 16. Two identical match arms | Answered. A generic `Installer` gives static dispatch, as `docs/standards.md` section 5.6 asks. The two arms are one line each |
-| 19. Naming | `ModelStore::install_missing` renamed. The module `verify.rs` and `partial_len` stay, because each has one purpose |
+| 19. Naming | `ModelStore::install_missing` renamed. The module `verify.rs` stays, because it has one purpose. Section 6, finding 6 renamed `partial_len` |
 | 20. Test structure | Fixed. Blank lines between the parts of three tests, and the test files split into topics. The attribute `#[cfg(test)]` stays on the test modules, because the lint `tests_outside_test_module` needs it |
 
 ### 2.3 Simplification pass
@@ -94,10 +94,12 @@ The author read the complete diff again. The pass removed the duplicate voice ch
 2. The crate has the file `src/install.rs` with the type `Installer`. It keeps `store.rs` small and keeps each function at 5 parameters or less.
 3. `tests/store/` is a directory with `main.rs`, because a test file has a maximum of 300 lines. `tests/support/mod.rs` is shared by both test targets with `#[path]`.
 4. The test server keeps the bodies in memory. A one-shot `TcpListener` implements "close the connection after a fixed number of bytes", because `tiny_http` cannot close a connection early.
-5. `ureq` 3 has no timeout for each read of a body. `READ_TIMEOUT` is `RESPONSE_TIMEOUT` and limits the wait for the response head. A server that stops in the middle of a body blocks the download. A custom `ureq` connector with a socket read timeout can fix this in a later stage.
+5. `ureq` 3 has no timeout for each read of a body, and `timeout_recv_body` is a total budget. The file `src/source/stall.rs` wraps `DefaultConnector` in `ReadTimeoutConnector`. The agent comes from `Agent::with_parts`. Each wait for input is limited to `READ_TIMEOUT` (30 s), also for the response head. A server that stops in the middle of a body gives a transient timeout error, and the retry continues from the `.part` file. The agent has a resolve timeout of 10 s. `HubFetch::new` takes the read timeout as a parameter. The cancel flag is read after each block, so a cancel waits up to `READ_TIMEOUT` while a read blocks.
 6. `flume` is a dev-dependency, because the clippy configuration forbids `Mutex` and `mpsc` for the records of the tests.
 7. A permanent error that is not `NotFound` returns `Network` with `attempts: 1`.
-8. `open` creates the root directory, so `fs4::available_space` works on a new store (decision rule 2).
+8. `open` does not touch the disk. `ensure` creates the root directory before `fs4::available_space` (decision rule 2). `disk_usage` returns 0 for a root that does not exist.
+9. `ModelStore::open` keeps the `Result` of the plan signature, but it cannot fail now. A change to `Self` needs a change of the plan contract.
+10. A download counts only consecutive attempts without progress. The plan text of `ensure` step 5.3 and AC-04-08 says so.
 
 ## 4. Manual criteria
 
@@ -107,8 +109,9 @@ Pending. The project owner runs these steps on the reference machine (Apple M5 P
 
 1. Run `networksetup -setairportpower en0 off` and remove any network cable.
 2. Run `curl -sI https://huggingface.co`. The command must fail.
-3. Run `cargo nextest run -p antenna-models`. All tests must pass.
-4. Run `networksetup -setairportpower en0 on`.
+3. Run `unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy ALL_PROXY all_proxy`. `ureq` 3 reads these variables by default, so a proxy can change the route of the tests.
+4. In the same shell, run `cargo nextest run -p antenna-models`. All tests must pass.
+5. Run `networksetup -setairportpower en0 on`.
 
 Sign-off. The project owner writes "approved" and the date here.
 
@@ -117,3 +120,25 @@ Sign-off line: ______________________
 ## 5. CI
 
 Run 37551738183 of the push of `5b93594`. The jobs `check (macos-latest)`, `check (ubuntu-latest)` and `check (windows-latest)` have the conclusion `success`.
+
+## 6. Second independent review
+
+A second review of commit `deeb0f9` reported 13 findings. The project owner asked to fix all of them. Each fix has a test, except finding 2, which no test can show.
+
+| Finding | Result |
+|---|---|
+| 1. A server that stops in the middle of a body blocks the download | Fixed. See difference 5. Test `fetch_times_out_and_keeps_bytes_when_server_stalls_mid_body` uses a raw `TcpListener` that sends a partial body and then waits for a message. The read timeout is 200 ms. The test expects `FetchError::Transient(ureq::Error::Timeout(_))` and a `.part` file with the bytes sent before the stall. The assertions do not depend on timing |
+| 2. No flush before the rename | Fixed. `commit` calls `sync_all` on the partial file after the hash check and before the rename and the `.verified` write. A crash cannot leave wrong data at the final path. No test can simulate a crash, so the unit tests only show that `commit` still installs the file |
+| 3. Cancel ignored before the first request and during the hash check | Fixed. `fetch_with_retry` returns `Cancelled` before the first request when the flag is set, after it takes the lock. The hash check reads the flag before each block. Tests `ensure_returns_cancelled_without_request_when_cancel_is_set`, `ensure_returns_cancelled_without_partial_file_when_cancel_is_set`, `sha256_hex_returns_cancelled_when_flag_is_set` and `commit_keeps_partial_file_when_cancelled`. The HTTP test now expects 0 requests |
+| 4. The body is not limited, and `Content-Range` is not read | Fixed. The body reader stops at the bytes that are still missing, so a body cannot write past the disk space check. A 206 reply must have a `Content-Range` that starts at the requested byte, or the result is `RangeUnsupported`. An oversize body gives a hash error. Tests `ensure_fails_on_hash_when_server_sends_more_bytes_than_declared`, `ensure_installs_declared_bytes_when_server_sends_more_bytes`, `ensure_fails_when_server_answers_other_range_than_requested` and `ensure_keeps_partial_file_when_server_answers_other_range_on_resume` |
+| 5. Wrong text about the lock race, and a spurious `NotFound` | Fixed. The race needs three parties. The remover unlinks the lock file while it holds the lock. A caller that opened the old file then locks the unlinked file. A third caller creates a new lock file and locks it. Then two callers hold a lock of one artifact and write one `.part` file. The hash check turns this worst case into a `Hash` error, because a mixed file cannot pass it. The design stays. `try_lock` now creates the directory of the artifact on each call, so a removal that prunes an empty directory cannot make a waiting download fail with `NotFound`. A small window remains between the creation and the open of the lock file. Test `try_lock_creates_directory_when_it_is_missing` |
+| 6. Abbreviation `len` in own names | Fixed. `partial_bytes`, `resumable_bytes`, `file_bytes` and `length` in the test helpers |
+| 7. Unused `fs4` feature `sync` | Fixed. The crate uses `fs4.workspace = true`. `available_space` does not need the feature |
+| 8. Duplicated code | Fixed. `has_declared_size` replaces two closures. `BLOCK_BYTES`, `FILE_BYTES`, `NOT_CANCELLED` and the path helpers `file`, `partial` and `with_suffix` are in `tests/support/mod.rs`. The method `Fixture::published` replaces the two copies of `published`. It is not in `tests/support/mod.rs`, because it needs the `Fixture` type of the `store` target, and the `hub` target would not use it. Both targets share one `FILE_BYTES` of 300000 bytes |
+| 9. Test quality | Fixed. The status loops have a message with the status in each assertion. The test of the final path has the name `final_path_stays_absent_when_hash_differs` (see AC-04-20). Test `ensure_resumes_when_partial_file_exists_and_extent_is_range` resumes an `Extent::Range` artifact over HTTP with a partial file |
+| 10. "failed after 1 attempts" | Fixed. The message is "the download of {artifact} failed, attempt count {attempts}". Test `network_message_names_attempt_count_when_count_is_one` |
+| 11. `open` creates the root | Fixed. `open` does not touch the disk. `ensure` creates the root before the disk space check. `disk_usage` returns 0 for a missing root. The text of decision rule 2 does not need a change, because it says to create the root first. Tests `open_leaves_root_absent_when_directory_missing`, `ensure_creates_root_when_directory_missing` and `disk_usage_is_zero_when_root_missing`. `open` keeps its `Result` (difference 9) |
+| 12. Retry budget | Fixed by decision of the project owner. The count of attempts starts again when the `.part` file grew during an attempt. A download that never gains bytes still fails after four attempts. The plan text of `ensure` step 5.3 and AC-04-08 says "four consecutive attempts without progress". Test `ensure_completes_when_connection_breaks_more_often_than_attempt_limit` breaks the connection five times, and the download completes. The test fails without the change |
+| 13. Empty `ANTENNA_MODEL_DIR` | Recorded. An empty `ANTENNA_MODEL_DIR` counts as not set, and `open_default` uses the platform directory. Unit test `default_root_uses_data_dir_when_env_empty` covers it. The documentation of `open_default` says so |
+
+The manual steps of AC-04-23 in section 4 now include the unset of the proxy variables.
