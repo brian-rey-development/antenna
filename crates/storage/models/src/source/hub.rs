@@ -5,15 +5,18 @@ use std::time::Duration;
 
 use antenna_core::{Artifact, Extent};
 use ureq::http::{Response, StatusCode};
+use ureq::unversioned::resolver::DefaultResolver;
 use ureq::{Agent, Body};
 
+use super::stall::ReadTimeoutConnector;
 use super::{Fetch, FetchError, copy_blocks, finish_copy, start_offset};
 use crate::ModelError;
 use crate::layout::file_len;
 
 const HUB_ENDPOINT: &str = "https://huggingface.co";
+const RESOLVE_TIMEOUT: Duration = Duration::from_secs(10);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+pub(crate) const READ_TIMEOUT: Duration = Duration::from_secs(30);
 const MISSING_STATUSES: [u16; 3] = [401, 403, 404];
 const TRANSIENT_STATUSES: [u16; 6] = [408, 429, 500, 502, 503, 504];
 const USER_AGENT: &str = concat!("antenna/", env!("CARGO_PKG_VERSION"));
@@ -25,14 +28,15 @@ pub(crate) struct HubFetch {
 }
 
 impl HubFetch {
-    pub(crate) fn new(endpoint: Option<&str>) -> Self {
+    pub(crate) fn new(endpoint: Option<&str>, read_timeout: Duration) -> Self {
         let config = Agent::config_builder()
+            .timeout_resolve(Some(RESOLVE_TIMEOUT))
             .timeout_connect(Some(CONNECT_TIMEOUT))
-            .timeout_recv_response(Some(RESPONSE_TIMEOUT))
             .user_agent(USER_AGENT)
             .build();
+        let connector = ReadTimeoutConnector::new(read_timeout);
         Self {
-            agent: config.into(),
+            agent: Agent::with_parts(config, connector, DefaultResolver::default()),
             endpoint: endpoint.unwrap_or(HUB_ENDPOINT).to_owned(),
         }
     }
@@ -131,7 +135,40 @@ fn open_partial(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::atomic::AtomicBool;
+    use std::thread;
+
     use super::*;
+
+    const STALL_READ_TIMEOUT: Duration = Duration::from_millis(200);
+    const ANNOUNCED_BYTES: u64 = 100_000;
+    const SENT_BYTES: usize = 1_000;
+    const STALLED: Artifact = Artifact {
+        key: "stalled",
+        repo: "antenna/test",
+        revision: "0123456789abcdef0123456789abcdef01234567",
+        path: "stalled.bin",
+        extent: Extent::Whole {
+            bytes: ANNOUNCED_BYTES,
+        },
+        sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    };
+
+    fn stall_after_partial_body(stream: &mut TcpStream, release: &flume::Receiver<()>) {
+        for line in BufReader::new(&*stream).lines() {
+            if line.unwrap().is_empty() {
+                break;
+            }
+        }
+        let head = format!("HTTP/1.1 200 OK\r\nContent-Length: {ANNOUNCED_BYTES}\r\n\r\n");
+        stream.write_all(head.as_bytes()).unwrap();
+        stream.write_all(&[7_u8; SENT_BYTES]).unwrap();
+        stream.flush().unwrap();
+        release.recv().unwrap();
+    }
 
     #[test]
     fn range_header_is_absent_when_whole_file_starts() {
@@ -157,6 +194,33 @@ mod tests {
     }
 
     #[test]
+    fn fetch_times_out_and_keeps_bytes_when_server_stalls_mid_body() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let (release, held) = flume::bounded(1);
+        let server = thread::Builder::new()
+            .name("antenna-test-stall".to_owned())
+            .spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stall_after_partial_body(&mut stream, &held);
+            })
+            .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let partial = directory.path().join("stalled.bin.part");
+        let fetcher = HubFetch::new(Some(&endpoint), STALL_READ_TIMEOUT);
+
+        let result = fetcher.fetch(&STALLED, &partial, &|_| {}, &AtomicBool::new(false));
+
+        release.send(()).unwrap();
+        server.join().unwrap();
+        assert!(matches!(
+            result,
+            Err(FetchError::Transient(ureq::Error::Timeout(_)))
+        ));
+        assert_eq!(fs::read(&partial).unwrap(), [7_u8; SENT_BYTES]);
+    }
+
+    #[test]
     fn is_transient_follows_status_list() {
         let statuses = [
             (408, true),
@@ -171,7 +235,9 @@ mod tests {
         ];
 
         for (status, expected) in statuses {
-            assert_eq!(is_transient(&ureq::Error::StatusCode(status)), expected);
+            let error = ureq::Error::StatusCode(status);
+
+            assert_eq!(is_transient(&error), expected, "status {status}");
         }
     }
 

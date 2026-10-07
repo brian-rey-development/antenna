@@ -1,5 +1,6 @@
 mod directory;
 mod hub;
+mod stall;
 
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -10,7 +11,7 @@ use antenna_core::{Artifact, Extent};
 use crate::ModelError;
 
 pub(crate) use directory::DirectoryFetch;
-pub(crate) use hub::HubFetch;
+pub(crate) use hub::{HubFetch, READ_TIMEOUT};
 
 const READ_BLOCK_BYTES: usize = 65_536;
 

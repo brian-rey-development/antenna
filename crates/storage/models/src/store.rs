@@ -12,7 +12,7 @@ use crate::install::Installer;
 use crate::layout::{ArtifactPaths, default_root, project_dirs, unique_files};
 use crate::progress::{DownloadProgress, Reporter};
 use crate::retry::{RETRY_COUNT, RETRY_DELAYS};
-use crate::source::{DirectoryFetch, HubFetch, Source};
+use crate::source::{DirectoryFetch, HubFetch, READ_TIMEOUT, Source};
 
 const MODEL_DIR_ENV: &str = "ANTENNA_MODEL_DIR";
 const DISK_MARGIN_BYTES: u64 = 1_073_741_824;
@@ -114,7 +114,7 @@ impl ModelStore {
         let root = self.root.as_path();
         match &self.source {
             Source::Hub { endpoint } => {
-                let fetcher = HubFetch::new(endpoint.as_deref());
+                let fetcher = HubFetch::new(endpoint.as_deref(), READ_TIMEOUT);
                 Installer::new(&fetcher, retry_delays, &reporter, cancel).install_all(root, missing)
             }
             Source::Directory(directory) => {
