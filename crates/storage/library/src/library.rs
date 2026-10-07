@@ -7,9 +7,9 @@ use std::time::SystemTime;
 use antenna_core::Document;
 use jiff::{Timestamp, Zoned};
 
+use crate::edits::parse_title;
 use crate::index::Index;
 use crate::meta_file::{read_meta, write_meta};
-use crate::metadata::parse_title;
 use crate::period::group_by_period;
 use crate::{
     DocumentId, DocumentMeta, DocumentSummary, Filter, GcReport, Group, LibraryError, SegmentStore,
@@ -73,6 +73,7 @@ impl Library {
     }
 
     /// Saves a new document and returns its id. The document starts with no voice and no segments.
+    /// The function removes the whitespace around the title.
     ///
     /// # Errors
     ///
@@ -87,8 +88,6 @@ impl Library {
         let title = parse_title(title)?;
         let id = DocumentId::new(now);
         let directory = self.directory(id);
-        fs::create_dir_all(&directory).map_err(LibraryError::io(&directory))?;
-        write_text(&directory, document)?;
         let meta = DocumentMeta {
             id,
             title,
@@ -102,7 +101,10 @@ impl Library {
             segments: None,
             last_export: None,
         };
-        write_meta(&directory, &meta)?;
+        if let Err(error) = write_new(&directory, &meta, document) {
+            drop(fs::remove_dir_all(&directory));
+            return Err(error);
+        }
         self.index.insert(meta, Some(fold(document.text())));
         Ok(id)
     }
@@ -167,7 +169,12 @@ impl Library {
             return Ok(());
         }
         let old_path = paths::text_path(&directory, meta.format);
-        fs::remove_file(&old_path).map_err(LibraryError::io(&old_path))
+        match fs::remove_file(&old_path) {
+            Err(error) if error.kind() != ErrorKind::NotFound => {
+                Err(LibraryError::io(&old_path)(error))
+            }
+            Ok(()) | Err(_) => Ok(()),
+        }
     }
 
     /// Deletes a document with its text. The segment files stay until garbage collection.
@@ -190,17 +197,22 @@ impl Library {
     ///
     /// # Errors
     ///
-    /// Returns [`LibraryError::Io`] if a text file cannot be read. The search then matches
-    /// titles only.
+    /// Returns the first [`LibraryError::Io`] of a text file that cannot be read. The function
+    /// still indexes the other documents. The search matches only the title of the failed one.
     pub fn build_search_index(&self) -> Result<(), LibraryError> {
         let mut texts = Vec::new();
+        let mut first_error = None;
         for meta in self.index.unindexed() {
             let path = paths::text_path(&self.directory(meta.id), meta.format);
-            let text = fs::read_to_string(&path).map_err(LibraryError::io(&path))?;
-            texts.push((meta.id, fold(&text)));
+            match fs::read_to_string(&path) {
+                Ok(text) => texts.push((meta.id, fold(&text))),
+                Err(source) => {
+                    first_error.get_or_insert(LibraryError::Io { path, source });
+                }
+            }
         }
         self.index.finish_text_index(texts);
-        Ok(())
+        first_error.map_or(Ok(()), Err)
     }
 
     /// Lists the documents that have the filter status and match each term of the query. The
@@ -222,7 +234,8 @@ impl Library {
     }
 
     /// Deletes each segment file that no document uses and that is older than one hour at `now`.
-    /// It also deletes each temporary file in the data root that is older than one hour at `now`.
+    /// It also deletes each temporary file in the directories `library` and `segments` that is
+    /// older than one hour at `now`.
     /// The age limit protects the segments of a job that started but did not record its keys, and
     /// the files of another process. The apps call this function on a background thread at start.
     ///
@@ -230,12 +243,26 @@ impl Library {
     ///
     /// Returns [`LibraryError::Io`] if a directory cannot be read or a file cannot be deleted.
     pub fn collect_garbage(&self, now: SystemTime) -> Result<GcReport, LibraryError> {
-        gc::collect(&self.root, &self.index.used_keys(), now)
+        let directories = [
+            paths::library_dir(&self.root),
+            paths::segments_dir(&self.root),
+        ];
+        gc::collect(&directories, || self.index.used_keys(), now)
     }
 
     pub(crate) fn directory(&self, id: DocumentId) -> PathBuf {
         paths::document_dir(&paths::library_dir(&self.root), id)
     }
+}
+
+fn write_new(
+    directory: &Path,
+    meta: &DocumentMeta,
+    document: &Document,
+) -> Result<(), LibraryError> {
+    fs::create_dir_all(directory).map_err(LibraryError::io(directory))?;
+    write_text(directory, document)?;
+    write_meta(directory, meta)
 }
 
 fn write_text(directory: &Path, document: &Document) -> Result<(), LibraryError> {

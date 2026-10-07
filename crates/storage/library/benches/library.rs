@@ -1,10 +1,5 @@
 //! Benchmarks of `open`, `build_search_index` and `list` with 1000 documents of 20 KB.
 
-#![expect(
-    clippy::expect_used,
-    reason = "a benchmark whose library does not open has no result to report"
-)]
-
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -38,6 +33,9 @@ const WORDS: [&str; 16] = [
     "nube",
     "jard\u{ed}n",
 ];
+const LCG_MULTIPLIER: u64 = 6_364_136_223_846_793_005;
+const LCG_INCREMENT: u64 = 1;
+const LCG_HIGH_BITS_SHIFT: u32 = 33;
 const QUERY: &str = "casa ausente";
 const SAMPLE_COUNT: u32 = 10;
 
@@ -66,41 +64,62 @@ fn text_of(index: i64) -> String {
     let mut state = u64::try_from(index).unwrap_or_default() + 1;
     while text.len() < DOCUMENT_BYTES {
         state = state
-            .wrapping_mul(6_364_136_223_846_793_005)
-            .wrapping_add(1);
-        let word = WORDS.get((state >> 33) as usize % WORDS.len());
+            .wrapping_mul(LCG_MULTIPLIER)
+            .wrapping_add(LCG_INCREMENT);
+        let word = WORDS.get((state >> LCG_HIGH_BITS_SHIFT) as usize % WORDS.len());
         text.push_str(word.copied().unwrap_or_default());
         text.push(' ');
     }
     text
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "main sets the root before a benchmark runs"
+)]
 fn root() -> &'static Path {
     ROOT.get()
         .expect("main sets the root before the benchmarks run")
 }
 
+#[expect(clippy::expect_used, reason = "the constant is a valid timestamp")]
 fn now() -> Zoned {
     let timestamp = Timestamp::from_second(NOW_SECONDS).expect("the constant is in range");
     timestamp.to_zoned(TimeZone::UTC)
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "a benchmark with no library has no result to report"
+)]
+fn open_root() -> Library {
+    Library::open(root()).expect("the root holds a library")
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "a benchmark with no index has no result to report"
+)]
+fn build_index(library: &Library) {
+    library.build_search_index().expect("the text files exist");
+}
+
 #[divan::bench(sample_count = SAMPLE_COUNT)]
 fn open_1000() -> Library {
-    Library::open(root()).expect("the root holds a library")
+    open_root()
 }
 
 #[divan::bench(sample_count = SAMPLE_COUNT)]
 fn index_1000(bencher: Bencher<'_, '_>) {
     bencher
-        .with_inputs(|| Library::open(root()).expect("the root holds a library"))
-        .bench_refs(|library| library.build_search_index().expect("the text files exist"));
+        .with_inputs(open_root)
+        .bench_refs(|library| build_index(library));
 }
 
 #[divan::bench(sample_count = SAMPLE_COUNT)]
 fn search_1000(bencher: Bencher<'_, '_>) {
-    let library = Library::open(root()).expect("the root holds a library");
-    library.build_search_index().expect("the text files exist");
+    let library = open_root();
+    build_index(&library);
     let now = now();
 
     bencher.bench(|| library.list(Filter::All, QUERY, &now));

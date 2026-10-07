@@ -5,17 +5,18 @@
 
 mod atomic;
 mod document;
+mod edits;
 mod error;
 mod gc;
 mod index;
 mod library;
 mod meta_file;
-mod metadata;
 mod paths;
 mod period;
 mod search;
 mod segments;
 mod status;
+mod text_form;
 
 pub use document::{DocumentId, DocumentMeta, ExportRecord, SegmentList, StoredVoice, text_hash};
 pub use error::LibraryError;

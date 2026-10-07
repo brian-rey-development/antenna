@@ -185,13 +185,15 @@ fn set_voice_keeps_segments_when_voice_same() {
         &voice("en-alba", Quality::Balanced),
     );
 
+    let modified = library.load(id).unwrap().0.modified;
+
     library
         .set_voice(id, voice("en-alba", Quality::Balanced), at(3_000))
         .unwrap();
     let meta = library.load(id).unwrap().0;
 
     assert!(meta.segments.is_some());
-    assert_eq!(meta.modified, at(200));
+    assert_eq!(meta.modified, modified);
 }
 
 #[test]

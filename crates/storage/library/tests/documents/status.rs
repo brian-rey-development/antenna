@@ -10,28 +10,56 @@ fn alba() -> StoredVoice {
 }
 
 #[test]
-fn record_segments_keeps_keys_until_record_complete() {
+fn record_segments_stores_incomplete_list_when_job_matches() {
+    let (_root, library) = library();
+    let document = plain("Hello");
+    let id = library.create("Notes", &document, at(100)).unwrap();
+    library.set_voice(id, alba(), at(200)).unwrap();
+
+    library
+        .record_segments(id, text_hash(&document), &alba(), vec![key('a')])
+        .unwrap();
+    let list = library.load(id).unwrap().0.segments.clone().unwrap();
+
+    assert_eq!((list.keys, list.is_complete), (vec![key('a')], false));
+    assert_eq!(status_of(&library, id), Status::Draft);
+}
+
+#[test]
+fn record_complete_marks_list_complete_when_job_matches() {
     let (_root, library) = library();
     let document = plain("Hello");
     let id = library.create("Notes", &document, at(100)).unwrap();
     let hash = text_hash(&document);
     library.set_voice(id, alba(), at(200)).unwrap();
-
     library
         .record_segments(id, hash, &alba(), vec![key('a')])
         .unwrap();
-    let before = status_of(&library, id);
+
     library
         .record_complete(id, hash, &alba(), Duration::from_secs(3))
         .unwrap();
-
     let list = library.load(id).unwrap().0.segments.clone().unwrap();
-    assert_eq!(before, Status::Draft);
-    assert_eq!(status_of(&library, id), Status::Ready);
+
     assert_eq!(
-        (list.keys, list.duration),
-        (vec![key('a')], Duration::from_secs(3))
+        (list.is_complete, list.duration),
+        (true, Duration::from_secs(3))
     );
+    assert_eq!(status_of(&library, id), Status::Ready);
+}
+
+#[test]
+fn record_segments_keeps_complete_list_when_keys_same() {
+    let (_root, library) = library();
+    let document = plain("Hello");
+    let id = library.create("Notes", &document, at(100)).unwrap();
+    complete(&library, id, &document, &alba());
+
+    library
+        .record_segments(id, text_hash(&document), &alba(), vec![key('a'), key('b')])
+        .unwrap();
+
+    assert_eq!(status_of(&library, id), Status::Ready);
 }
 
 #[test]
@@ -144,28 +172,41 @@ fn status_leaves_exported_when_text_saved() {
     library
         .record_export(id, ExportFormat::Mp3, at(300))
         .unwrap();
-    let before = status_of(&library, id);
+    let was_exported = status_of(&library, id);
 
     library
         .save_text(id, &plain("Hello again"), at(400))
         .unwrap();
 
-    assert_eq!(before, Status::Exported(ExportFormat::Mp3));
+    assert_eq!(was_exported, Status::Exported(ExportFormat::Mp3));
     assert_eq!(status_of(&library, id), Status::Draft);
 }
 
 #[test]
-fn progress_changes_status_until_cleared() {
+fn progress_gives_generating_when_set() {
     let (_root, library) = library();
     let document = plain("Hello");
     let id = library.create("Notes", &document, at(100)).unwrap();
     complete(&library, id, &document, &alba());
 
     library.set_progress(id, Some((1, 4)));
-    let running = status_of(&library, id);
+
+    assert_eq!(
+        status_of(&library, id),
+        Status::Generating { done: 1, total: 4 }
+    );
+}
+
+#[test]
+fn progress_gives_ready_when_cleared() {
+    let (_root, library) = library();
+    let document = plain("Hello");
+    let id = library.create("Notes", &document, at(100)).unwrap();
+    complete(&library, id, &document, &alba());
+    library.set_progress(id, Some((1, 4)));
+
     library.set_progress(id, None);
 
-    assert_eq!(running, Status::Generating { done: 1, total: 4 });
     assert_eq!(status_of(&library, id), Status::Ready);
 }
 

@@ -142,7 +142,7 @@ mod tests {
             let result = text.parse::<SegmentKey>();
 
             assert!(
-                matches!(&result, Err(LibraryError::InvalidSegmentKey { text: kept }) if kept == text),
+                matches!(&result, Err(LibraryError::InvalidSegmentKey { text: parsed }) if parsed == text),
                 "{text:?}"
             );
         }
@@ -186,10 +186,10 @@ mod tests {
         let mut writer = store.writer(key('c'), RATE).unwrap();
         writer.write(&[0.5; 64]).unwrap();
 
-        let before = store.contains(&key('c'));
+        let was_visible = store.contains(&key('c'));
         writer.commit().unwrap();
 
-        assert!(!before);
+        assert!(!was_visible);
         assert!(store.contains(&key('c')));
         assert!(store.path(&key('c')).is_file());
     }
@@ -215,7 +215,7 @@ mod tests {
 
         let stored = store.read(&key('e')).unwrap();
         assert_eq!(stored.samples.len(), 10);
-        assert_eq!(duration, RATE.duration_of(20));
+        assert_eq!(duration, RATE.duration_of(10));
         assert_eq!(files_under(root.path()).len(), 1);
     }
 

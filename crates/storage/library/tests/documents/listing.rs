@@ -83,7 +83,37 @@ fn build_search_index_fails_when_text_file_missing() {
     let result = reopened.build_search_index();
 
     assert!(matches!(result, Err(LibraryError::Io { .. })));
-    assert_eq!(found(&reopened, "leche"), Vec::<String>::new());
+}
+
+#[test]
+fn build_search_index_indexes_other_documents_when_one_text_file_missing() {
+    let (root, library) = library();
+    let broken = library
+        .create("Broken", &plain("Compra leche"), at(100))
+        .unwrap();
+    library
+        .create("Fine", &plain("Compra leche"), at(200))
+        .unwrap();
+    let reopened = reopen(&root);
+    fs::remove_file(document_dir(&root, broken).join("text.txt")).unwrap();
+
+    reopened.build_search_index().unwrap_err();
+
+    assert_eq!(found(&reopened, "leche"), ["Fine"]);
+}
+
+#[test]
+fn search_matches_text_when_query_has_accents() {
+    let (root, library) = library();
+    library
+        .create("Plan", &plain("Compra leche y caf\u{e9}"), at(100))
+        .unwrap();
+    let reopened = reopen(&root);
+    reopened.build_search_index().unwrap();
+
+    let titles = found(&reopened, "CAF\u{c9}");
+
+    assert_eq!(titles, ["Plan"]);
 }
 
 #[test]
@@ -160,6 +190,6 @@ fn recent_returns_four_newest_opened() {
     let recent = library.recent();
 
     let order: Vec<_> = recent.iter().map(|summary| summary.meta.id).collect();
-    assert_eq!(RECENT_LIMIT, 4);
+    assert_eq!(order.len(), RECENT_LIMIT);
     assert_eq!(order, [ids[2], ids[4], ids[0], ids[3]]);
 }

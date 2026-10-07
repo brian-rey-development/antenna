@@ -17,8 +17,8 @@ pub const RECENT_LIMIT: usize = 4;
 #[derive(Debug)]
 struct Entry {
     meta: Arc<DocumentMeta>,
-    folded_title: String,
-    folded_text: Option<String>,
+    folded_title: Arc<str>,
+    folded_text: Option<Arc<str>>,
     progress: Option<(u32, u32)>,
 }
 
@@ -30,12 +30,29 @@ impl Entry {
         }
     }
 
-    fn matches(&self, terms: &[String], text_index: TextIndex) -> bool {
+    fn candidate(&self, text_index: TextIndex) -> Candidate {
         let text = match text_index {
-            TextIndex::Built => self.folded_text.as_deref().unwrap_or_default(),
-            TextIndex::Pending => "",
+            TextIndex::Built => self.folded_text.clone(),
+            TextIndex::Pending => None,
         };
-        search::matches(terms, &self.folded_title, text)
+        Candidate {
+            summary: self.summary(),
+            title: Arc::clone(&self.folded_title),
+            text,
+        }
+    }
+}
+
+/// The data of a document for a search outside the lock.
+struct Candidate {
+    summary: DocumentSummary,
+    title: Arc<str>,
+    text: Option<Arc<str>>,
+}
+
+impl Candidate {
+    fn is_match(&self, terms: &[String]) -> bool {
+        search::matches(terms, &self.title, self.text.as_deref().unwrap_or_default())
     }
 }
 
@@ -59,6 +76,7 @@ pub(crate) struct Index {
 }
 
 impl Index {
+    // No code panics while it holds the guard, so a poisoned lock still holds consistent data.
     fn read(&self) -> RwLockReadGuard<'_, State> {
         self.state.read().unwrap_or_else(PoisonError::into_inner)
     }
@@ -69,9 +87,9 @@ impl Index {
 
     pub(crate) fn insert(&self, meta: DocumentMeta, folded_text: Option<String>) {
         let entry = Entry {
-            folded_title: fold(&meta.title),
+            folded_title: fold(&meta.title).into(),
             meta: Arc::new(meta),
-            folded_text,
+            folded_text: folded_text.map(Arc::from),
             progress: None,
         };
         self.write().entries.insert(entry.meta.id, entry);
@@ -85,7 +103,7 @@ impl Index {
 
     pub(crate) fn replace(&self, meta: DocumentMeta) -> Result<Arc<DocumentMeta>, LibraryError> {
         let id = meta.id;
-        let folded_title = fold(&meta.title);
+        let folded_title: Arc<str> = fold(&meta.title).into();
         let mut state = self.write();
         let entry = state
             .entries
@@ -108,7 +126,7 @@ impl Index {
 
     pub(crate) fn set_folded_text(&self, id: DocumentId, folded_text: String) {
         if let Some(entry) = self.write().entries.get_mut(&id) {
-            entry.folded_text = Some(folded_text);
+            entry.folded_text = Some(folded_text.into());
         }
     }
 
@@ -125,19 +143,25 @@ impl Index {
         let mut state = self.write();
         for (id, folded_text) in texts {
             if let Some(entry) = state.entries.get_mut(&id) {
-                entry.folded_text.get_or_insert(folded_text);
+                entry.folded_text.get_or_insert_with(|| folded_text.into());
             }
         }
         state.text_index = TextIndex::Built;
     }
 
     pub(crate) fn matching(&self, filter: Filter, terms: &[String]) -> Vec<DocumentSummary> {
-        let state = self.read();
-        let entries = state.entries.values();
-        entries
-            .filter(|entry| entry.matches(terms, state.text_index))
-            .map(Entry::summary)
-            .filter(|summary| filter.keeps(summary.status))
+        let candidates: Vec<Candidate> = {
+            let state = self.read();
+            let entries = state.entries.values();
+            let candidates = entries.map(|entry| entry.candidate(state.text_index));
+            candidates
+                .filter(|candidate| filter.is_selected(candidate.summary.status))
+                .collect()
+        };
+        candidates
+            .into_iter()
+            .filter(|candidate| candidate.is_match(terms))
+            .map(|candidate| candidate.summary)
             .collect()
     }
 

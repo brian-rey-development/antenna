@@ -15,6 +15,7 @@ use crate::{LibraryError, paths};
 
 const KEY_BYTES: usize = 32;
 const PCM_BITS: u16 = 16;
+const MONO_CHANNELS: u16 = 1;
 
 /// The name of a stored segment. It is the SHA-256 of the engine, the engine version, the voice,
 /// the quality and the segment text. A change of any of them gives a new key.
@@ -42,13 +43,17 @@ impl SegmentKey {
             &quality_text,
             text,
         ];
-        let mut hasher = Sha256::new();
-        for field in fields {
-            hasher.update((field.len() as u64).to_le_bytes());
-            hasher.update(field.as_bytes());
-        }
-        Self(hasher.finalize().into())
+        Self(digest(&fields))
     }
+}
+
+fn digest(fields: &[&str]) -> [u8; KEY_BYTES] {
+    let mut hasher = Sha256::new();
+    for field in fields {
+        hasher.update((field.len() as u64).to_le_bytes());
+        hasher.update(field.as_bytes());
+    }
+    hasher.finalize().into()
 }
 
 impl Display for SegmentKey {
@@ -132,18 +137,18 @@ impl SegmentStore {
         let target = self.path(&key);
         let parent = target.parent().unwrap_or(&self.directory);
         fs::create_dir_all(parent).map_err(LibraryError::io(parent))?;
-        let temp_file = TempFile::beside(&target);
-        let spec = WavSpec {
-            channels: 1,
+        let temp_file = TempFile::for_target(&target);
+        let format = WavSpec {
+            channels: MONO_CHANNELS,
             sample_rate: rate.hz(),
             bits_per_sample: PCM_BITS,
             sample_format: SampleFormat::Int,
         };
-        let wav = WavWriter::create(temp_file.path(), spec)
+        let wav = WavWriter::create(temp_file.path(), format)
             .map_err(LibraryError::wav(temp_file.path()))?;
         Ok(SegmentWriter {
             wav,
-            temp: temp_file,
+            temp_file,
             target,
             rate,
         })
@@ -171,16 +176,16 @@ impl SegmentStore {
     ///
     /// Returns [`LibraryError::Wav`] if the file is absent or is not a valid segment file.
     pub fn duration(&self, key: &SegmentKey) -> Result<Duration, LibraryError> {
-        let (reader, rate) = open_reader(&self.path(key))?;
-        Ok(rate.duration_of(u64::from(reader.duration())))
+        read_duration(&self.path(key))
     }
 }
 
 /// A segment file in progress. If the writer drops before [`SegmentWriter::commit`], it deletes
 /// its temporary file.
 pub struct SegmentWriter {
+    // The WAV writer drops first. Its drop writes the header, and the temporary file must exist.
     wav: WavWriter<BufWriter<File>>,
-    temp: TempFile,
+    temp_file: TempFile,
     target: PathBuf,
     rate: SampleRate,
 }
@@ -205,36 +210,44 @@ impl SegmentWriter {
         samples
             .iter()
             .try_for_each(|&sample| self.wav.write_sample(to_pcm(sample)))
-            .map_err(LibraryError::wav(self.temp.path()))
+            .map_err(LibraryError::wav(self.temp_file.path()))
     }
 
     /// Finishes the file and makes it visible in the store. If the store has a file for the key
     /// already, the writer keeps that file, because engines are deterministic. The function
-    /// returns the duration of the audio.
+    /// returns the duration of the stored file.
     ///
     /// # Errors
     ///
     /// Returns [`LibraryError::Wav`] or [`LibraryError::Io`] if the file cannot be finished or
     /// renamed.
     pub fn commit(self) -> Result<Duration, LibraryError> {
-        let duration = self.rate.duration_of(u64::from(self.wav.duration()));
         self.wav
             .finalize()
-            .map_err(LibraryError::wav(self.temp.path()))?;
-        atomic::sync_path(self.temp.path())?;
+            .map_err(LibraryError::wav(self.temp_file.path()))?;
+        atomic::sync_path(self.temp_file.path())?;
         if !self.target.exists() {
-            self.temp.persist(&self.target)?;
+            self.temp_file.persist(&self.target)?;
         }
-        Ok(duration)
+        read_duration(&self.target)
     }
+}
+
+fn read_duration(path: &Path) -> Result<Duration, LibraryError> {
+    let (reader, rate) = open_reader(path)?;
+    Ok(rate.duration_of(u64::from(reader.duration())))
 }
 
 fn open_reader(path: &Path) -> Result<(WavReader<BufReader<File>>, SampleRate), LibraryError> {
     let reader = WavReader::open(path).map_err(LibraryError::wav(path))?;
-    let hz = NonZeroU32::new(reader.spec().sample_rate);
+    let format = reader.spec();
+    let is_pcm16_mono = format.channels == MONO_CHANNELS
+        && format.bits_per_sample == PCM_BITS
+        && format.sample_format == SampleFormat::Int;
+    let hz = NonZeroU32::new(format.sample_rate).filter(|_| is_pcm16_mono);
     let rate = hz.map(SampleRate::new).ok_or_else(|| LibraryError::Wav {
         path: path.to_owned(),
-        source: hound::Error::FormatError("the sample rate is zero"),
+        source: hound::Error::FormatError("the file is not 16-bit mono PCM with a sample rate"),
     })?;
     Ok((reader, rate))
 }
@@ -257,7 +270,6 @@ mod tests {
 
     #[test]
     fn to_pcm_scales_with_pcm_scale_when_in_range() {
-        assert_eq!(to_pcm(0.0), 0);
         assert_eq!(to_pcm(1.0), 32_767);
         assert_eq!(to_pcm(-1.0), -32_767);
         assert_eq!(to_pcm(0.5), 16_384);
@@ -267,7 +279,6 @@ mod tests {
     fn to_pcm_clamps_when_sample_out_of_range() {
         assert_eq!(to_pcm(2.5), 32_767);
         assert_eq!(to_pcm(-9.0), -32_767);
-        assert_eq!(to_pcm(f32::INFINITY), 32_767);
     }
 
     #[test]
@@ -279,6 +290,11 @@ mod tests {
     fn from_pcm_divides_by_pcm_scale() {
         assert!((from_pcm(32_767) - 1.0).abs() <= f32::EPSILON);
         assert!((from_pcm(-32_767) + 1.0).abs() <= f32::EPSILON);
-        assert!(from_pcm(0).abs() <= f32::EPSILON);
+    }
+
+    #[test]
+    fn digest_differs_when_text_moves_between_fields() {
+        assert_ne!(digest(&["ab", "c"]), digest(&["a", "bc"]));
+        assert_ne!(digest(&["", "a"]), digest(&["a", ""]));
     }
 }

@@ -31,7 +31,7 @@ fn store_segment(library: &Library, key: SegmentKey, age: Duration) -> PathBuf {
     path
 }
 
-fn temp_file(directory: &Path, name: &str, age: Duration) -> PathBuf {
+fn aged_file(directory: &Path, name: &str, age: Duration) -> PathBuf {
     let path = directory.join(name);
     fs::write(&path, "partial").unwrap();
     set_age(&path, age);
@@ -56,10 +56,10 @@ fn record_keys(library: &Library, id: DocumentId, keys: Vec<SegmentKey>) {
 fn gc_deletes_temp_files_when_older_than_one_hour() {
     let (root, library, id) = library_with_document();
     let directory = document_dir(&root, id);
-    let old = temp_file(&directory, "document.toml.tmp-1-0", HOUR * 2);
-    let young = temp_file(&directory, "text.txt.tmp-1-1", HOUR / 2);
-    let exact = temp_file(&directory, "text.txt.tmp-1-2", HOUR);
-    let old_segment = temp_file(&root.path().join("segments"), "a.wav.tmp-2-0", HOUR * 3);
+    let old = aged_file(&directory, "document.toml.tmp-1-0", HOUR * 2);
+    let young = aged_file(&directory, "text.txt.tmp-1-1", HOUR / 2);
+    let exact = aged_file(&directory, "text.txt.tmp-1-2", HOUR);
+    let old_segment = aged_file(&root.path().join("segments"), "a.wav.tmp-2-0", HOUR * 3);
 
     let report = library.collect_garbage(now()).unwrap();
 
@@ -98,11 +98,11 @@ fn gc_deletes_segments_of_deleted_document_when_old() {
     record_keys(&library, id, vec![key('1')]);
     let segment = store_segment(&library, key('1'), HOUR * 2);
     library.delete(id).unwrap();
-    let kept = segment.is_file();
+    let was_present = segment.is_file();
 
     library.collect_garbage(now()).unwrap();
 
-    assert!(kept);
+    assert!(was_present);
     assert!(!segment.exists());
 }
 
@@ -110,8 +110,8 @@ fn gc_deletes_segments_of_deleted_document_when_old() {
 fn gc_keeps_files_when_not_segments() {
     let (root, library, _id) = library_with_document();
     let segments = root.path().join("segments");
-    let other = temp_file(&segments, "notes.wav", HOUR * 5);
-    let readme = temp_file(&segments, "README", HOUR * 5);
+    let other = aged_file(&segments, "notes.wav", HOUR * 5);
+    let readme = aged_file(&segments, "README", HOUR * 5);
 
     let report = library.collect_garbage(now()).unwrap();
 

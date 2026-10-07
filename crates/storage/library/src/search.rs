@@ -7,17 +7,17 @@ use unicode_normalization::char::is_combining_mark;
 /// the text to lowercase and replaces each run of whitespace with one space.
 pub fn fold(text: &str) -> String {
     let mut folded = String::with_capacity(text.len());
-    let mut after_space = false;
+    let mut is_after_space = false;
     let characters = text
         .nfd()
         .filter(|&character| !is_combining_mark(character))
         .flat_map(char::to_lowercase);
     for character in characters {
         let is_space = character.is_whitespace();
-        if !(is_space && after_space) {
+        if !(is_space && is_after_space) {
             folded.push(if is_space { ' ' } else { character });
         }
-        after_space = is_space;
+        is_after_space = is_space;
     }
     folded
 }

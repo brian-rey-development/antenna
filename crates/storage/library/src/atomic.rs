@@ -8,6 +8,7 @@ use crate::LibraryError;
 
 pub(crate) const TEMP_MARKER: &str = ".tmp-";
 
+// A process can hold two stores or libraries, so the process id alone does not make a name unique.
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
 /// A temporary file next to its target. The file is deleted when the value drops, so each
@@ -18,7 +19,7 @@ pub(crate) struct TempFile {
 }
 
 impl TempFile {
-    pub(crate) fn beside(target: &Path) -> Self {
+    pub(crate) fn for_target(target: &Path) -> Self {
         let mut name = target.file_name().unwrap_or_default().to_owned();
         let counter = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
         name.push(format!("{TEMP_MARKER}{}-{counter}", process::id()));
@@ -44,7 +45,7 @@ impl Drop for TempFile {
 }
 
 pub(crate) fn write(target: &Path, bytes: &[u8]) -> Result<(), LibraryError> {
-    let temp_file = TempFile::beside(target);
+    let temp_file = TempFile::for_target(target);
     write_synced(temp_file.path(), bytes).map_err(LibraryError::io(temp_file.path()))?;
     temp_file.persist(target)
 }
@@ -71,8 +72,8 @@ mod tests {
     fn temp_file_name_has_marker_and_differs_when_made_twice() {
         let target = Path::new("dir").join("document.toml");
 
-        let first = TempFile::beside(&target);
-        let second = TempFile::beside(&target);
+        let first = TempFile::for_target(&target);
+        let second = TempFile::for_target(&target);
 
         let name = first.path().file_name().unwrap().to_str().unwrap();
         assert!(name.starts_with(&format!("document.toml{TEMP_MARKER}")));
@@ -83,7 +84,7 @@ mod tests {
     #[test]
     fn temp_file_is_deleted_when_dropped() {
         let dir = tempfile::tempdir().unwrap();
-        let temp_file = TempFile::beside(&dir.path().join("target"));
+        let temp_file = TempFile::for_target(&dir.path().join("target"));
         fs::write(temp_file.path(), b"partial").unwrap();
         let path = temp_file.path().to_owned();
 
@@ -97,7 +98,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("target");
         fs::write(&target, b"old").unwrap();
-        let temp_file = TempFile::beside(&target);
+        let temp_file = TempFile::for_target(&target);
         fs::write(temp_file.path(), b"new").unwrap();
 
         temp_file.persist(&target).unwrap();

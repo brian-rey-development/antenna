@@ -104,7 +104,7 @@ mod tests {
             expected.sort();
             prop_assert_eq!(listed, expected);
             prop_assert!(groups.iter().all(|group| !group.documents.is_empty()));
-            let periods: HashSet<_> = groups.iter().map(|group| format!("{:?}", group.period)).collect();
+            let periods: HashSet<_> = groups.iter().map(|group| group.period).collect();
             prop_assert_eq!(periods.len(), groups.len());
         }
 

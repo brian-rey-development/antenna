@@ -10,7 +10,6 @@ use uuid::Uuid;
 use uuid::timestamp::context::NoContext;
 
 use crate::SegmentKey;
-use crate::meta_file::as_text;
 
 /// The identifier of a document. It is a UUID v7, so identifiers sort by creation time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -52,7 +51,7 @@ pub struct StoredVoice {
     /// The text form of a voice id, for example "qwen3/es-lucia".
     pub id: String,
     /// The quality of the voice.
-    #[serde(with = "as_text")]
+    #[serde(with = "crate::text_form")]
     pub quality: Quality,
 }
 
@@ -70,12 +69,12 @@ impl StoredVoice {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SegmentList {
     /// The text hash of the document when the job started.
-    #[serde(with = "as_text")]
+    #[serde(with = "crate::text_form")]
     pub text_hash: TextHash,
     /// The voice of the job.
     pub voice: StoredVoice,
     /// The segment keys in document order.
-    #[serde(with = "as_text::list")]
+    #[serde(with = "crate::text_form::list")]
     pub keys: Vec<SegmentKey>,
     /// `true` if the segment store has all segments.
     pub is_complete: bool,
@@ -83,11 +82,17 @@ pub struct SegmentList {
     pub duration: Duration,
 }
 
+impl SegmentList {
+    pub(crate) fn is_for(&self, text_hash: TextHash, voice: &StoredVoice) -> bool {
+        self.text_hash == text_hash && self.voice == *voice
+    }
+}
+
 /// The last export of a document.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExportRecord {
     /// The format of the export file.
-    #[serde(with = "as_text")]
+    #[serde(with = "crate::text_form")]
     pub format: ExportFormat,
     /// The time of the export.
     pub at: Timestamp,
@@ -101,10 +106,10 @@ pub struct DocumentMeta {
     /// The title that the user sees. It is never blank.
     pub title: String,
     /// The format of the text file.
-    #[serde(with = "as_text")]
+    #[serde(with = "crate::text_form")]
     pub format: TextFormat,
     /// The language of the text, if the app identified it.
-    #[serde(default, with = "as_text::option")]
+    #[serde(default, with = "crate::text_form::option")]
     pub language: Option<Language>,
     /// The voice of the document, if the user selected one.
     pub voice: Option<StoredVoice>,
@@ -115,7 +120,7 @@ pub struct DocumentMeta {
     /// The time of the last opening.
     pub opened: Timestamp,
     /// The hash of the text file that this metadata describes.
-    #[serde(with = "as_text")]
+    #[serde(with = "crate::text_form")]
     pub text_hash: TextHash,
     /// The segments of the last job for the current voice.
     pub segments: Option<SegmentList>,

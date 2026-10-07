@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::time::SystemTime;
 
 use antenna_core::Quality;
-use antenna_library::Status;
+use antenna_library::{Status, text_hash};
 
 use super::support::{at, complete, document_dir, library, plain, reopen, status_of, voice};
 
@@ -18,14 +18,24 @@ fn status_is_draft_when_meta_is_older_than_text() {
         &voice("en-alba", Quality::Balanced),
     );
     fs::write(document_dir(&root, id).join("text.txt"), "Hello again").unwrap();
-
     let reopened = reopen(&root);
-    let (meta, loaded) = reopened.load(id).unwrap();
 
-    assert_eq!(loaded, plain("Hello again"));
-    assert_ne!(meta.text_hash, meta.segments.clone().unwrap().text_hash);
+    reopened.load(id).unwrap();
+
     assert_eq!(status_of(&reopened, id), Status::Draft);
-    assert_eq!(status_of(&reopen(&root), id), Status::Draft);
+}
+
+#[test]
+fn load_stores_text_hash_when_text_file_is_newer_than_meta() {
+    let (root, library) = library();
+    let id = library.create("Notes", &plain("Hello"), at(100)).unwrap();
+    fs::write(document_dir(&root, id).join("text.txt"), "Hello again").unwrap();
+    let reopened = reopen(&root);
+
+    reopened.load(id).unwrap();
+    let meta = reopen(&root).load(id).unwrap().0;
+
+    assert_eq!(meta.text_hash, text_hash(&plain("Hello again")));
 }
 
 #[test]

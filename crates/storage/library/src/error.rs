@@ -59,7 +59,7 @@ pub enum LibraryError {
     },
     /// The environment variable `ANTENNA_DATA_DIR` is not set, and the platform has no data
     /// directory.
-    #[error("the data directory is unknown, set ANTENNA_DATA_DIR")]
+    #[error("the data directory is unknown. Set ANTENNA_DATA_DIR")]
     NoDataDir,
 }
 

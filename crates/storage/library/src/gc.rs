@@ -21,13 +21,18 @@ pub struct GcReport {
 }
 
 pub(crate) fn collect(
-    root: &Path,
-    used: &HashSet<SegmentKey>,
+    directories: &[PathBuf],
+    used_keys: impl FnOnce() -> HashSet<SegmentKey>,
     now: SystemTime,
 ) -> Result<GcReport, LibraryError> {
+    let mut files = Vec::new();
+    for directory in directories {
+        files.extend(files_under(directory)?);
+    }
+    let used = used_keys();
     let mut report = GcReport::default();
-    for path in files_under(root)? {
-        let deleted = delete_if_garbage(&path, used, now).map_err(LibraryError::io(&path))?;
+    for path in files {
+        let deleted = delete_if_garbage(&path, &used, now).map_err(LibraryError::io(&path))?;
         if let Some(bytes) = deleted {
             report.deleted_files += 1;
             report.deleted_bytes += bytes;

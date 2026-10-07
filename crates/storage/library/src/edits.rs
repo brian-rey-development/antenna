@@ -11,7 +11,7 @@ use crate::{
 };
 
 impl Library {
-    /// Changes the title of a document.
+    /// Changes the title of a document. The function removes the whitespace around the title.
     ///
     /// # Errors
     ///
@@ -75,7 +75,8 @@ impl Library {
     }
 
     /// Records the segment keys of a job that started. If the text hash or the voice is not the
-    /// one of the document, the function does nothing.
+    /// one of the document, the function does nothing. If the document has the same keys already,
+    /// it keeps the list and its completion flag.
     ///
     /// # Errors
     ///
@@ -90,6 +91,13 @@ impl Library {
     ) -> Result<(), LibraryError> {
         self.change(id, |meta| {
             if !meta.is_for_job(text_hash, voice) {
+                return None;
+            }
+            let is_recorded = meta
+                .segments
+                .as_ref()
+                .is_some_and(|list| list.is_for(text_hash, voice) && list.keys == keys);
+            if is_recorded {
                 return None;
             }
             let segments = SegmentList {
@@ -122,8 +130,7 @@ impl Library {
     ) -> Result<(), LibraryError> {
         self.change(id, |meta| {
             let list = meta.segments.as_ref()?;
-            let is_current = list.text_hash == text_hash && list.voice == *voice;
-            if !is_current || !meta.is_for_job(text_hash, voice) {
+            if !list.is_for(text_hash, voice) || !meta.is_for_job(text_hash, voice) {
                 return None;
             }
             let segments = SegmentList {
@@ -173,7 +180,7 @@ impl Library {
         })
     }
 
-    /// Sets the progress of a running job, as the completed and the total segments, or `None`
+    /// Sets the progress of a job that runs, as the completed and the total segments, or `None`
     /// when the job ends. The progress is in memory only. A call with an unknown id does nothing.
     pub fn set_progress(&self, id: DocumentId, progress: Option<(u32, u32)>) {
         self.index.set_progress(id, progress);

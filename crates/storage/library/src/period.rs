@@ -7,7 +7,7 @@ use jiff::{Timestamp, Zoned};
 use crate::DocumentSummary;
 
 /// A span of time that groups documents in the library. A greater period is newer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Period {
     /// A calendar month, for a date that is not in the current ISO week.
     Month {

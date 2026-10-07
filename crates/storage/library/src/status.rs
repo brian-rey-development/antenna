@@ -4,7 +4,7 @@ use antenna_core::ExportFormat;
 
 use crate::DocumentMeta;
 
-/// The state of a document, derived from its stored data and from the progress of a running job.
+/// The state of a document, derived from its stored data and from the progress of a job that runs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
     /// Not all segments of the current text and voice are stored, and no job runs.
@@ -34,7 +34,7 @@ pub enum Filter {
 }
 
 impl Filter {
-    pub(crate) fn keeps(self, status: Status) -> bool {
+    pub(crate) fn is_selected(self, status: Status) -> bool {
         match self {
             Self::All => true,
             Self::Ready => matches!(status, Status::Ready | Status::Exported(_)),
@@ -147,28 +147,36 @@ mod tests {
             ..ready_meta()
         };
 
-        assert_eq!(status(&meta, None), Status::Draft);
+        let status = status(&meta, None);
+
+        assert_eq!(status, Status::Draft);
     }
 
     #[test]
     fn status_is_draft_when_text_changed() {
         let meta = with_segments(|list| list.text_hash = TextHash::new([2; 32]));
 
-        assert_eq!(status(&meta, None), Status::Draft);
+        let status = status(&meta, None);
+
+        assert_eq!(status, Status::Draft);
     }
 
     #[test]
     fn status_is_draft_when_segments_incomplete() {
         let meta = with_segments(|list| list.is_complete = false);
 
-        assert_eq!(status(&meta, None), Status::Draft);
+        let status = status(&meta, None);
+
+        assert_eq!(status, Status::Draft);
     }
 
     #[test]
     fn status_is_draft_when_segments_voice_differs() {
         let meta = with_segments(|list| list.voice = voice(Quality::Max));
 
-        assert_eq!(status(&meta, None), Status::Draft);
+        let status = status(&meta, None);
+
+        assert_eq!(status, Status::Draft);
     }
 
     #[test]
@@ -178,29 +186,37 @@ mod tests {
             ..ready_meta()
         };
 
-        assert_eq!(status(&meta, None), Status::Draft);
+        let status = status(&meta, None);
+
+        assert_eq!(status, Status::Draft);
     }
 
     #[test]
     fn status_is_exported_when_export_after_change() {
-        assert_eq!(
-            status(&exported_at(101), None),
-            Status::Exported(ExportFormat::Wav)
-        );
-        assert_eq!(
-            status(&exported_at(100), None),
-            Status::Exported(ExportFormat::Wav)
-        );
+        let status = status(&exported_at(101), None);
+
+        assert_eq!(status, Status::Exported(ExportFormat::Wav));
+    }
+
+    #[test]
+    fn status_is_exported_when_export_time_equals_change_time() {
+        let status = status(&exported_at(100), None);
+
+        assert_eq!(status, Status::Exported(ExportFormat::Wav));
     }
 
     #[test]
     fn status_is_ready_when_export_before_change() {
-        assert_eq!(status(&exported_at(99), None), Status::Ready);
+        let status = status(&exported_at(99), None);
+
+        assert_eq!(status, Status::Ready);
     }
 
     #[test]
     fn status_is_ready_when_complete_and_not_exported() {
-        assert_eq!(status(&ready_meta(), None), Status::Ready);
+        let status = status(&ready_meta(), None);
+
+        assert_eq!(status, Status::Ready);
     }
 
     #[test]
@@ -210,6 +226,8 @@ mod tests {
             ..exported_at(200)
         };
 
-        assert_eq!(status(&meta, None), Status::Draft);
+        let status = status(&meta, None);
+
+        assert_eq!(status, Status::Draft);
     }
 }
